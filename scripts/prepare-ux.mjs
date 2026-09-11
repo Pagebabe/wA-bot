@@ -18,6 +18,13 @@ html = replaceOnce(
 
 html = replaceOnce(
   html,
+  '<button class="icon" title="Schließen" onclick="closeConversation()">⋮</button>',
+  '<button class="icon" title="Chat schließen" aria-label="Chat schließen" onclick="closeConversation()">✕</button>',
+  'explicit chat close control',
+);
+
+html = replaceOnce(
+  html,
   '<select id="pHandoff"><option value="stop">KI stoppt</option><option value="assist">KI assistiert</option><option value="continue">KI darf weiter</option></select>',
   '<select id="pHandoff" disabled><option value="stop">KI stoppt (Beta)</option></select>',
   'handoff options reflect beta behavior',
@@ -63,4 +70,4 @@ server = replaceOnce(
 );
 writeFileSync(serverPath, server);
 
-console.log('prepare-ux: clickability, settings semantics and push activation hardened');
+console.log('prepare-ux: clickability, settings semantics, push activation and close affordance hardened');
