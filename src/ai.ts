@@ -100,7 +100,8 @@ export async function transcribeAudio(settings: LlmSettings, audio: Buffer, mime
   if (!apiKey || !base) throw new Error('Transcription API is not configured');
   const form = new FormData();
   form.append('model', 'gpt-4o-mini-transcribe');
-  form.append('file', new Blob([audio], { type: mime }), 'voice.ogg');
+  const copy = Uint8Array.from(audio);
+  form.append('file', new Blob([copy.buffer as ArrayBuffer], { type: mime }), 'voice.ogg');
   const response = await fetch(`${normalizeBaseUrl(base)}/audio/transcriptions`, {
     method: 'POST',
     headers: { authorization: `Bearer ${apiKey}` },
