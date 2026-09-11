@@ -39,6 +39,10 @@ export type Profile = {
   max_ai_turns: number;
   handoff_behavior: 'stop' | 'assist' | 'continue';
   voice_mode: 'off' | 'human_tts' | 'ai_tts';
+  llm_model_override?: string | null;
+  temperature?: number | null;
+  voice_name?: string | null;
+  media?: unknown[] | null;
   preset_name?: string | null;
 };
 
