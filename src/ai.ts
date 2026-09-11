@@ -4,6 +4,8 @@ export type LlmSettings = {
   llm_base_url?: string | null;
   llm_model?: string | null;
   llm_api_key_encrypted?: string | null;
+  voice_enabled?: boolean | null;
+  voice_model?: string | null;
 };
 
 export type Qualification = {
@@ -76,4 +78,35 @@ export async function qualifyLead(
     score,
     reason: typeof parsed.reason === 'string' ? parsed.reason.slice(0, 500) : '',
   };
+}
+
+export async function synthesizeVoice(settings: LlmSettings, text: string): Promise<Buffer> {
+  const apiKey = settings.llm_api_key_encrypted;
+  const base = settings.llm_base_url;
+  if (!apiKey || !base) throw new Error('Voice API is not configured');
+  const model = settings.voice_model || 'gpt-4o-mini-tts';
+  const response = await fetch(`${normalizeBaseUrl(base)}/audio/speech`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ model, voice: 'alloy', input: text, format: 'mp3' }),
+  });
+  if (!response.ok) throw new Error(`TTS HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
+  return Buffer.from(await response.arrayBuffer());
+}
+
+export async function transcribeAudio(settings: LlmSettings, audio: Buffer, mime = 'audio/ogg'): Promise<string> {
+  const apiKey = settings.llm_api_key_encrypted;
+  const base = settings.llm_base_url;
+  if (!apiKey || !base) throw new Error('Transcription API is not configured');
+  const form = new FormData();
+  form.append('model', 'gpt-4o-mini-transcribe');
+  form.append('file', new Blob([audio], { type: mime }), 'voice.ogg');
+  const response = await fetch(`${normalizeBaseUrl(base)}/audio/transcriptions`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${apiKey}` },
+    body: form,
+  });
+  if (!response.ok) throw new Error(`STT HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
+  const payload: any = await response.json();
+  return String(payload?.text || '').trim();
 }
