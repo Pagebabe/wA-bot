@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { gateway, type Conversation, type Profile, type StoredMessage } from './store.js';
 import { qualifyLead, synthesizeVoice, transcribeAudio, type LlmSettings } from './ai.js';
 import { verifyBasicAuthorization } from './auth.js';
+import { getVapidPublicKey, notifyHotLead, savePushSubscription } from './push.js';
 import {
   connectWhatsApp,
   getConnection,
@@ -147,15 +148,22 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw, kind) => 
     const forceHuman = turn >= Number(profile.max_ai_turns || 8);
 
     if (result.hot || forceHuman) {
+      const hotReason = forceHuman ? 'Maximale KI-Runden erreicht – manuelle Übernahme erforderlich.' : result.reason;
       await updateConversation(conversation.id, {
         state: 'HOT',
         hot_score: forceHuman ? Math.max(result.score, 0.75) : result.score,
-        hot_reason: forceHuman ? 'Maximale KI-Runden erreicht – manuelle Übernahme erforderlich.' : result.reason,
+        hot_reason: hotReason,
         ai_turns: turn,
       });
       await gateway('add_event', {
-        data: { profile_id: profileId, conversation_id: conversation.id, type: 'HOT', payload: { score: result.score, reason: result.reason } },
+        data: { profile_id: profileId, conversation_id: conversation.id, type: 'HOT', payload: { score: result.score, reason: hotReason } },
       });
+      void notifyHotLead({
+        conversationId: conversation.id,
+        contactName: name || conversation.contact_name || 'Neuer Lead',
+        profileName: profile.name,
+        preview: text,
+      }).catch((error) => app.log.warn({ err: error }, 'Push notification failed'));
       return;
     }
 
@@ -169,7 +177,7 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw, kind) => 
       let outgoingKind: 'text' | 'voice' = 'text';
       if (profile.voice_mode === 'ai_tts' && currentSettings.voice_enabled) {
         try {
-          const audio = await synthesizeVoice(currentSettings as LlmSettings, outgoingText);
+          const audio = await synthesizeVoice(currentSettings as LlmSettings, outgoingText, profile.voice_name || 'alloy');
           sentId = await sendVoiceAudio(profileId, jid, audio);
           outgoingKind = 'voice';
         } catch (voiceError) {
@@ -221,6 +229,22 @@ app.get('/api/status', async () => {
     llmConfigured: Boolean(s.llm_api_key_encrypted && s.llm_model && s.llm_base_url),
     voiceEnabled: Boolean(s.voice_enabled),
   };
+});
+
+app.get('/api/push/key', async () => ({ publicKey: await getVapidPublicKey() }));
+
+app.post('/api/push/subscribe', async (request, reply) => {
+  const body: any = request.body || {};
+  const subscription = body.subscription;
+  if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
+    return reply.code(400).send({ error: 'Ungültiges Push-Abonnement' });
+  }
+  await savePushSubscription({
+    endpoint: String(subscription.endpoint),
+    keys: { p256dh: String(subscription.keys.p256dh), auth: String(subscription.keys.auth) },
+    userAgent: String(request.headers['user-agent'] || ''),
+  });
+  return { ok: true };
 });
 
 app.post('/api/settings', async (request) => {
@@ -319,8 +343,7 @@ app.post('/api/profiles/:id/unlink', async (request) => {
 app.get('/api/conversations/:id/messages', async (request) => ({ data: await messages((request.params as any).id) }));
 
 app.post('/api/conversations/:id/takeover', async (request) => {
-  const c = await updateConversation((request.params as any).id, { state: 'HUMAN_ACTIVE', unread_count: 0 });
-  return c;
+  return updateConversation((request.params as any).id, { state: 'HUMAN_ACTIVE', unread_count: 0 });
 });
 
 app.post('/api/conversations/:id/return-ai', async (request) => {
@@ -343,7 +366,7 @@ app.post('/api/conversations/:id/send', async (request, reply) => {
   let outgoingKind: 'text' | 'voice' = 'text';
   if (wantsVoice) {
     try {
-      const audio = await synthesizeVoice(currentSettings as LlmSettings, text);
+      const audio = await synthesizeVoice(currentSettings as LlmSettings, text, profile.voice_name || 'alloy');
       sentId = await sendVoiceAudio(c.profile_id, c.wa_jid, audio);
       outgoingKind = 'voice';
     } catch (voiceError) {
@@ -372,6 +395,7 @@ app.post('/api/demo/hot', async () => {
   await addMessage({ conversation_id: c.id, direction: 'in', sender: 'lead', kind: 'text', text: 'Hallo, was kostet es und wann wäre heute noch etwas frei?' });
   await addMessage({ conversation_id: c.id, direction: 'out', sender: 'ai', kind: 'text', text: 'Heute ist grundsätzlich noch möglich. Möchtest du konkret einen Termin abstimmen?' });
   await addMessage({ conversation_id: c.id, direction: 'in', sender: 'lead', kind: 'text', text: 'Ja, ich würde gern heute noch einen Termin machen.' });
+  void notifyHotLead({ conversationId: c.id, contactName: 'Demo Lead', profileName: p.name, preview: 'Ja, ich würde gern heute noch einen Termin machen.' }).catch(() => undefined);
   return { ok: true, id: c.id };
 });
 
@@ -382,5 +406,6 @@ app.setNotFoundHandler((request, reply) => {
 
 const initialProfiles = await profiles();
 restoreWhatsAppSessions(initialProfiles).catch((error) => app.log.error(error));
+void getVapidPublicKey().catch((error) => app.log.warn({ err: error }, 'Push initialization failed'));
 
 await app.listen({ port, host: '0.0.0.0' });
