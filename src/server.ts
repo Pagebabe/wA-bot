@@ -3,13 +3,15 @@ import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import { join } from 'node:path';
 import { gateway, type Conversation, type Profile, type StoredMessage } from './store.js';
-import { qualifyLead, type LlmSettings } from './ai.js';
+import { qualifyLead, synthesizeVoice, transcribeAudio, type LlmSettings } from './ai.js';
 import {
   connectWhatsApp,
   getConnection,
   restoreWhatsAppSessions,
   sendText,
+  sendVoiceAudio,
   setInboundHandler,
+  setVoiceTranscriber,
   unlinkWhatsApp,
 } from './whatsapp.js';
 
@@ -62,7 +64,13 @@ async function updateConversation(id: string, patch: Record<string, unknown>) {
   return (await gateway<{ data: Conversation }>('update_conversation', { data: { id, ...patch } })).data;
 }
 
-setInboundHandler(async (profileId, jid, name, text, waMessageId, raw) => {
+setVoiceTranscriber(async (audio, mime) => {
+  const currentSettings = await settings();
+  if (!currentSettings.voice_enabled) throw new Error('Voice transcription is disabled');
+  return transcribeAudio(currentSettings as LlmSettings, audio, mime);
+});
+
+setInboundHandler(async (profileId, jid, name, text, waMessageId, raw, kind) => {
   const profile = await getProfile(profileId);
   const existing = (await conversations(profileId)).find((x) => x.wa_jid === jid);
   const now = new Date().toISOString();
@@ -71,7 +79,7 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw) => {
   if (existing) {
     conversation = await updateConversation(existing.id, {
       contact_name: name || existing.contact_name,
-      last_message_preview: text.slice(0, 180),
+      last_message_preview: kind === 'voice' ? `🎙 ${text.slice(0, 160)}` : text.slice(0, 180),
       last_message_at: now,
       unread_count: (existing.unread_count || 0) + 1,
     });
@@ -82,7 +90,7 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw) => {
         wa_jid: jid,
         contact_name: name,
         state: 'AI_ACTIVE',
-        last_message_preview: text.slice(0, 180),
+        last_message_preview: kind === 'voice' ? `🎙 ${text.slice(0, 160)}` : text.slice(0, 180),
         last_message_at: now,
         unread_count: 1,
       },
@@ -94,7 +102,7 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw) => {
     wa_message_id: waMessageId,
     direction: 'in',
     sender: 'lead',
-    kind: 'text',
+    kind,
     text,
     raw,
   });
@@ -127,18 +135,26 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw) => {
       if (firstAi && currentSettings.ai_disclosure_enabled !== false) {
         reply = `Hinweis: Du schreibst gerade mit einem KI-Assistenten. ${reply}`;
       }
-      const sentId = await sendText(profileId, jid, reply);
+      let sentId: string | null;
+      let outgoingKind: 'text' | 'voice' = 'text';
+      if (profile.voice_mode === 'ai_tts' && currentSettings.voice_enabled) {
+        const audio = await synthesizeVoice(currentSettings as LlmSettings, reply);
+        sentId = await sendVoiceAudio(profileId, jid, audio);
+        outgoingKind = 'voice';
+      } else {
+        sentId = await sendText(profileId, jid, reply);
+      }
       await addMessage({
         conversation_id: conversation.id,
         wa_message_id: sentId,
         direction: 'out',
         sender: 'ai',
-        kind: 'text',
+        kind: outgoingKind,
         text: reply,
       });
       await updateConversation(conversation.id, {
         ai_turns: turn,
-        last_message_preview: reply.slice(0, 180),
+        last_message_preview: outgoingKind === 'voice' ? `🎙 ${reply.slice(0, 160)}` : reply.slice(0, 180),
         last_message_at: new Date().toISOString(),
       });
     }
@@ -148,7 +164,7 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw) => {
   }
 });
 
-app.get('/health', async () => ({ ok: true, service: 'wa-bot', version: '0.2.0' }));
+app.get('/health', async () => ({ ok: true, service: 'wa-bot', version: '0.3.0' }));
 
 app.get('/api/bootstrap', async () => {
   const [p, c, s] = await Promise.all([profiles(), conversations(), settings()]);
@@ -163,11 +179,12 @@ app.get('/api/status', async () => {
   const [p, c, s] = await Promise.all([profiles(), conversations(), settings()]);
   return {
     product: 'wA-bot',
-    version: '0.2.0',
+    version: '0.3.0',
     profiles: p.length,
     online: p.filter((x) => getConnection(x.id).status === 'online').length,
     hot: c.filter((x) => x.state === 'HOT').length,
     llmConfigured: Boolean(s.llm_api_key_encrypted && s.llm_model && s.llm_base_url),
+    voiceEnabled: Boolean(s.voice_enabled),
   };
 });
 
@@ -281,10 +298,22 @@ app.post('/api/conversations/:id/send', async (request, reply) => {
   if (!text) return reply.code(400).send({ error: 'Nachricht leer' });
   const c = (await conversations()).find((x) => x.id === id);
   if (!c) return reply.code(404).send({ error: 'Chat nicht gefunden' });
-  const sentId = await sendText(c.profile_id, c.wa_jid, text);
-  await addMessage({ conversation_id: id, wa_message_id: sentId, direction: 'out', sender: 'human', kind: 'text', text });
-  await updateConversation(id, { state: 'HUMAN_ACTIVE', unread_count: 0, last_message_preview: text.slice(0, 180), last_message_at: new Date().toISOString() });
-  return { ok: true };
+  const profile = await getProfile(c.profile_id);
+  const currentSettings = await settings();
+  const wantsVoice = Boolean(body.voice);
+  let sentId: string | null;
+  let outgoingKind: 'text' | 'voice' = 'text';
+  if (wantsVoice) {
+    if (!currentSettings.voice_enabled || profile.voice_mode === 'off') return reply.code(400).send({ error: 'Sprachmodus ist für dieses Profil nicht aktiv.' });
+    const audio = await synthesizeVoice(currentSettings as LlmSettings, text);
+    sentId = await sendVoiceAudio(c.profile_id, c.wa_jid, audio);
+    outgoingKind = 'voice';
+  } else {
+    sentId = await sendText(c.profile_id, c.wa_jid, text);
+  }
+  await addMessage({ conversation_id: id, wa_message_id: sentId, direction: 'out', sender: 'human', kind: outgoingKind, text });
+  await updateConversation(id, { state: 'HUMAN_ACTIVE', unread_count: 0, last_message_preview: outgoingKind === 'voice' ? `🎙 ${text.slice(0, 160)}` : text.slice(0, 180), last_message_at: new Date().toISOString() });
+  return { ok: true, kind: outgoingKind };
 });
 
 app.post('/api/demo/hot', async () => {
