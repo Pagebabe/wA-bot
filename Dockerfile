@@ -1,6 +1,7 @@
 FROM node:22-alpine AS build
 WORKDIR /app
-RUN apk add --no-cache git
+RUN apk add --no-cache git chromium
+ENV CHROMIUM_PATH=/usr/bin/chromium
 COPY package*.json ./
 RUN npm install
 COPY tsconfig.json ./
