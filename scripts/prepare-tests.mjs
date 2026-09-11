@@ -26,7 +26,7 @@ replaceOnce(
 );
 replaceOnce(
   "    await page.getByTitle('Profile verwalten').click(); await page.getByText('Smoke Profil',{exact:false}).first().click();",
-  "    await page.getByTitle('Profile verwalten').click(); await page.locator('#profileRows button').filter({hasText:'Smoke Profil'}).first().click();",
+  "    await page.getByTitle('Profile verwalten').click(); await page.locator('#profileRows button').filter({hasText:'Smoke Profil'}).nth(0).click();",
   'profile row selector two',
 );
 
