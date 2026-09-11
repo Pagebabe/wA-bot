@@ -1,56 +1,315 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { z } from 'zod';
+import fastifyStatic from '@fastify/static';
+import { join } from 'node:path';
+import { gateway, type Conversation, type Profile, type StoredMessage } from './store.js';
+import { qualifyLead, type LlmSettings } from './ai.js';
+import {
+  connectWhatsApp,
+  getConnection,
+  restoreWhatsAppSessions,
+  sendText,
+  setInboundHandler,
+  unlinkWhatsApp,
+} from './whatsapp.js';
 
 const app = Fastify({ logger: true });
-await app.register(cors, { origin: true });
+await app.register(cors, { origin: true, credentials: true });
+await app.register(fastifyStatic, { root: join(process.cwd(), 'public'), prefix: '/' });
 
-const envSchema = z.object({
-  PORT: z.coerce.number().default(3000),
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  DATABASE_URL: z.string().optional(),
-  REDIS_URL: z.string().optional(),
+const port = Number(process.env.PORT || 3000);
+
+async function settings(): Promise<any> {
+  return (await gateway<{ data: any }>('get_settings')).data;
+}
+
+async function profiles(): Promise<Profile[]> {
+  return (await gateway<{ data: Profile[] }>('list_profiles')).data || [];
+}
+
+async function conversations(profileId?: string): Promise<Conversation[]> {
+  return (await gateway<{ data: Conversation[] }>('list_conversations', profileId ? { profile_id: profileId } : {})).data || [];
+}
+
+async function messages(conversationId: string): Promise<StoredMessage[]> {
+  return (await gateway<{ data: StoredMessage[] }>('list_messages', { conversation_id: conversationId })).data || [];
+}
+
+function safeSettings(raw: any) {
+  return {
+    app_name: raw?.app_name || 'wA-bot',
+    llm_base_url: raw?.llm_base_url || 'https://api.openai.com',
+    llm_model: raw?.llm_model || 'gpt-5-mini',
+    has_llm_key: Boolean(raw?.llm_api_key_encrypted),
+    voice_enabled: Boolean(raw?.voice_enabled),
+    voice_provider: raw?.voice_provider || 'same-api',
+    voice_model: raw?.voice_model || 'gpt-4o-mini-tts',
+    ai_disclosure_enabled: raw?.ai_disclosure_enabled !== false,
+  };
+}
+
+async function getProfile(id: string): Promise<Profile> {
+  const profile = (await profiles()).find((x) => x.id === id);
+  if (!profile) throw new Error('Profil nicht gefunden');
+  return profile;
+}
+
+async function addMessage(data: Record<string, unknown>) {
+  return (await gateway<{ data: StoredMessage }>('add_message', { data })).data;
+}
+
+async function updateConversation(id: string, patch: Record<string, unknown>) {
+  return (await gateway<{ data: Conversation }>('update_conversation', { data: { id, ...patch } })).data;
+}
+
+setInboundHandler(async (profileId, jid, name, text, waMessageId, raw) => {
+  const profile = await getProfile(profileId);
+  const existing = (await conversations(profileId)).find((x) => x.wa_jid === jid);
+  const now = new Date().toISOString();
+  let conversation: Conversation;
+
+  if (existing) {
+    conversation = await updateConversation(existing.id, {
+      contact_name: name || existing.contact_name,
+      last_message_preview: text.slice(0, 180),
+      last_message_at: now,
+      unread_count: (existing.unread_count || 0) + 1,
+    });
+  } else {
+    conversation = (await gateway<{ data: Conversation }>('upsert_conversation', {
+      data: {
+        profile_id: profileId,
+        wa_jid: jid,
+        contact_name: name,
+        state: 'AI_ACTIVE',
+        last_message_preview: text.slice(0, 180),
+        last_message_at: now,
+        unread_count: 1,
+      },
+    })).data;
+  }
+
+  await addMessage({
+    conversation_id: conversation.id,
+    wa_message_id: waMessageId,
+    direction: 'in',
+    sender: 'lead',
+    kind: 'text',
+    text,
+    raw,
+  });
+
+  if (!profile.bot_enabled || ['HOT', 'HUMAN_ACTIVE', 'CLOSED', 'PAUSED'].includes(conversation.state)) return;
+
+  try {
+    const allMessages = await messages(conversation.id);
+    const currentSettings = await settings();
+    const result = await qualifyLead(currentSettings as LlmSettings, profile, conversation, allMessages);
+    const turn = Number(conversation.ai_turns || 0) + 1;
+    const forceHuman = turn >= Number(profile.max_ai_turns || 8);
+
+    if (result.hot || forceHuman) {
+      await updateConversation(conversation.id, {
+        state: 'HOT',
+        hot_score: forceHuman ? Math.max(result.score, 0.75) : result.score,
+        hot_reason: forceHuman ? 'Maximale KI-Runden erreicht – manuelle Übernahme erforderlich.' : result.reason,
+        ai_turns: turn,
+      });
+      await gateway('add_event', {
+        data: { profile_id: profileId, conversation_id: conversation.id, type: 'HOT', payload: { score: result.score, reason: result.reason } },
+      });
+      return;
+    }
+
+    if (result.reply) {
+      let reply = result.reply;
+      const firstAi = !allMessages.some((m) => m.sender === 'ai');
+      if (firstAi && currentSettings.ai_disclosure_enabled !== false) {
+        reply = `Hinweis: Du schreibst gerade mit einem KI-Assistenten. ${reply}`;
+      }
+      const sentId = await sendText(profileId, jid, reply);
+      await addMessage({
+        conversation_id: conversation.id,
+        wa_message_id: sentId,
+        direction: 'out',
+        sender: 'ai',
+        kind: 'text',
+        text: reply,
+      });
+      await updateConversation(conversation.id, {
+        ai_turns: turn,
+        last_message_preview: reply.slice(0, 180),
+        last_message_at: new Date().toISOString(),
+      });
+    }
+  } catch (error) {
+    app.log.error(error);
+    await updateConversation(conversation.id, { state: 'AI_ERROR', hot_reason: error instanceof Error ? error.message.slice(0, 300) : 'AI error' });
+  }
 });
 
-const env = envSchema.parse(process.env);
+app.get('/health', async () => ({ ok: true, service: 'wa-bot', version: '0.2.0' }));
 
-app.get('/health', async () => ({
-  ok: true,
-  service: 'wa-bot',
-  version: '0.1.0',
-  env: env.NODE_ENV,
-}));
-
-app.get('/api/status', async () => ({
-  product: 'wA-bot',
-  gate: 'G0',
-  nextGate: 'G1',
-  components: {
-    web: 'online',
-    postgres: env.DATABASE_URL ? 'configured' : 'not-configured',
-    redis: env.REDIS_URL ? 'configured' : 'not-configured',
-    whatsapp: 'not-configured',
-    llm: 'not-configured',
-    voice: 'not-configured',
-  },
-}));
-
-app.get('/', async (_request, reply) => {
-  reply.type('text/html').send(`<!doctype html>
-<html lang="de">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>wA-bot Beta</title>
-<style>
-body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#0b1014;color:#eef3f5}.wrap{max-width:1100px;margin:0 auto;padding:28px}.top{display:flex;justify-content:space-between;align-items:center}.badge{background:#163221;border:1px solid #2c6b46;padding:7px 10px;border-radius:999px}.grid{display:grid;grid-template-columns:220px 1fr;gap:18px;margin-top:24px}.panel{background:#121a20;border:1px solid #27323a;border-radius:14px;padding:16px}.profile{padding:12px;border-radius:10px;background:#172229;margin:8px 0}.cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}.col{min-height:360px}.hot{border-color:#7d2f2f}.muted{color:#97a6af}.item{padding:12px;background:#182128;border-radius:10px;margin-top:10px}.fire{font-size:18px}@media(max-width:800px){.grid,.cols{grid-template-columns:1fr}}
-</style>
-</head>
-<body><div class="wrap">
-<div class="top"><div><h1>wA-bot</h1><div class="muted">Multi-WhatsApp KI-Vorqualifizierung</div></div><div class="badge">G0 · Grundsystem</div></div>
-<div class="grid"><aside class="panel"><b>Profile</b><div class="profile">Profil A · offline</div><div class="profile">Profil B · offline</div><div class="muted">+ Profil hinzufügen</div></aside>
-<main class="cols"><section class="panel col"><b>KI-Chats</b><div class="item muted">Noch keine Chats</div></section><section class="panel col hot"><b class="fire">HOT 🔥</b><div class="item muted">Alarm-Warteschlange</div></section><section class="panel col"><b>Übernommen</b><div class="item muted">Menschliche Chats</div></section></main></div>
-</div></body></html>`);
+app.get('/api/bootstrap', async () => {
+  const [p, c, s] = await Promise.all([profiles(), conversations(), settings()]);
+  return {
+    profiles: p.map((profile) => ({ ...profile, connection: getConnection(profile.id) })),
+    conversations: c,
+    settings: safeSettings(s),
+  };
 });
 
-await app.listen({ port: env.PORT, host: '0.0.0.0' });
+app.get('/api/status', async () => {
+  const [p, c, s] = await Promise.all([profiles(), conversations(), settings()]);
+  return {
+    product: 'wA-bot',
+    version: '0.2.0',
+    profiles: p.length,
+    online: p.filter((x) => getConnection(x.id).status === 'online').length,
+    hot: c.filter((x) => x.state === 'HOT').length,
+    llmConfigured: Boolean(s.llm_api_key_encrypted && s.llm_model && s.llm_base_url),
+  };
+});
+
+app.post('/api/settings', async (request) => {
+  const body: any = request.body || {};
+  const old = await settings();
+  const patch: any = {
+    app_name: body.app_name || old.app_name || 'wA-bot',
+    llm_base_url: body.llm_base_url || old.llm_base_url || 'https://api.openai.com',
+    llm_model: body.llm_model || old.llm_model || 'gpt-5-mini',
+    voice_enabled: Boolean(body.voice_enabled),
+    voice_provider: body.voice_provider || old.voice_provider || 'same-api',
+    voice_model: body.voice_model || old.voice_model || 'gpt-4o-mini-tts',
+    ai_disclosure_enabled: body.ai_disclosure_enabled !== false,
+  };
+  if (typeof body.llm_api_key === 'string' && body.llm_api_key.trim()) patch.llm_api_key_encrypted = body.llm_api_key.trim();
+  const saved = (await gateway<{ data: any }>('save_settings', { data: patch })).data;
+  return { ok: true, settings: safeSettings(saved) };
+});
+
+app.post('/api/settings/test', async (request, reply) => {
+  const body: any = request.body || {};
+  const s = await settings();
+  const base = String(body.llm_base_url || s.llm_base_url || '').replace(/\/$/, '').replace(/\/v1$/, '') + '/v1';
+  const model = body.llm_model || s.llm_model;
+  const key = body.llm_api_key || s.llm_api_key_encrypted;
+  if (!base || !model || !key) return reply.code(400).send({ ok: false, error: 'API-URL, Modell und Schlüssel fehlen.' });
+  const r = await fetch(`${base}/chat/completions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+    body: JSON.stringify({ model, max_tokens: 20, messages: [{ role: 'user', content: 'Antworte nur mit OK.' }] }),
+  });
+  return { ok: r.ok, status: r.status, text: (await r.text()).slice(0, 300) };
+});
+
+app.post('/api/profiles', async (request, reply) => {
+  const body: any = request.body || {};
+  if (!String(body.name || '').trim()) return reply.code(400).send({ error: 'Name fehlt' });
+  const data = {
+    name: String(body.name).trim(),
+    phone_label: body.phone_label || '',
+    location: body.location || '',
+    price_text: body.price_text || '',
+    hours_text: body.hours_text || '',
+    bot_enabled: body.bot_enabled !== false,
+    system_prompt: body.system_prompt || undefined,
+    qualification_prompt: body.qualification_prompt || undefined,
+    hot_threshold: Number(body.hot_threshold ?? 0.8),
+    response_style: body.response_style || 'kurz',
+    max_ai_turns: Number(body.max_ai_turns ?? 8),
+    handoff_behavior: body.handoff_behavior || 'stop',
+    voice_mode: body.voice_mode || 'off',
+    preset_name: body.preset_name || null,
+  };
+  Object.keys(data).forEach((k) => (data as any)[k] === undefined && delete (data as any)[k]);
+  return reply.code(201).send((await gateway<{ data: Profile }>('create_profile', { data })).data);
+});
+
+app.patch('/api/profiles/:id', async (request) => {
+  const id = (request.params as any).id;
+  const body: any = request.body || {};
+  return (await gateway<{ data: Profile }>('update_profile', { data: { id, ...body } })).data;
+});
+
+app.post('/api/profiles/:id/clone', async (request) => {
+  const source = await getProfile((request.params as any).id);
+  const { id: _id, status: _status, ...copy } = source as any;
+  copy.name = `${source.name} Kopie`;
+  copy.phone_label = '';
+  return (await gateway<{ data: Profile }>('create_profile', { data: copy })).data;
+});
+
+app.delete('/api/profiles/:id', async (request) => {
+  const id = (request.params as any).id;
+  await unlinkWhatsApp(id).catch(() => undefined);
+  await gateway('delete_profile', { id });
+  return { ok: true };
+});
+
+app.post('/api/profiles/:id/connect', async (request) => {
+  const profile = await getProfile((request.params as any).id);
+  await connectWhatsApp(profile);
+  return getConnection(profile.id);
+});
+
+app.get('/api/profiles/:id/connection', async (request) => getConnection((request.params as any).id));
+
+app.post('/api/profiles/:id/unlink', async (request) => {
+  await unlinkWhatsApp((request.params as any).id);
+  return { ok: true };
+});
+
+app.get('/api/conversations/:id/messages', async (request) => ({ data: await messages((request.params as any).id) }));
+
+app.post('/api/conversations/:id/takeover', async (request) => {
+  const c = await updateConversation((request.params as any).id, { state: 'HUMAN_ACTIVE', unread_count: 0 });
+  return c;
+});
+
+app.post('/api/conversations/:id/return-ai', async (request) => {
+  const c = await updateConversation((request.params as any).id, { state: 'AI_ACTIVE', unread_count: 0, hot_reason: null, hot_score: null });
+  return c;
+});
+
+app.post('/api/conversations/:id/close', async (request) => updateConversation((request.params as any).id, { state: 'CLOSED', unread_count: 0 }));
+
+app.post('/api/conversations/:id/send', async (request, reply) => {
+  const id = (request.params as any).id;
+  const body: any = request.body || {};
+  const text = String(body.text || '').trim();
+  if (!text) return reply.code(400).send({ error: 'Nachricht leer' });
+  const c = (await conversations()).find((x) => x.id === id);
+  if (!c) return reply.code(404).send({ error: 'Chat nicht gefunden' });
+  const sentId = await sendText(c.profile_id, c.wa_jid, text);
+  await addMessage({ conversation_id: id, wa_message_id: sentId, direction: 'out', sender: 'human', kind: 'text', text });
+  await updateConversation(id, { state: 'HUMAN_ACTIVE', unread_count: 0, last_message_preview: text.slice(0, 180), last_message_at: new Date().toISOString() });
+  return { ok: true };
+});
+
+app.post('/api/demo/hot', async () => {
+  let p = (await profiles())[0];
+  if (!p) {
+    p = (await gateway<{ data: Profile }>('create_profile', { data: { name: 'Demo-Profil', location: 'Köln', price_text: 'ab 80 €' } })).data;
+  }
+  const jid = `demo-${Date.now()}@s.whatsapp.net`;
+  const c = (await gateway<{ data: Conversation }>('upsert_conversation', { data: {
+    profile_id: p.id, wa_jid: jid, contact_name: 'Demo Lead', state: 'HOT', hot_score: 0.94,
+    hot_reason: 'Demo: konkretes Interesse und sofort terminbereit.', unread_count: 1,
+    last_message_preview: 'Ja, ich würde gern heute noch einen Termin machen.', last_message_at: new Date().toISOString(),
+  } })).data;
+  await addMessage({ conversation_id: c.id, direction: 'in', sender: 'lead', kind: 'text', text: 'Hallo, was kostet es und wann wäre heute noch etwas frei?' });
+  await addMessage({ conversation_id: c.id, direction: 'out', sender: 'ai', kind: 'text', text: 'Heute ist grundsätzlich noch möglich. Möchtest du konkret einen Termin abstimmen?' });
+  await addMessage({ conversation_id: c.id, direction: 'in', sender: 'lead', kind: 'text', text: 'Ja, ich würde gern heute noch einen Termin machen.' });
+  return { ok: true, id: c.id };
+});
+
+app.setNotFoundHandler((request, reply) => {
+  if (request.url.startsWith('/api/')) return reply.code(404).send({ error: 'not_found' });
+  return reply.sendFile('index.html');
+});
+
+const initialProfiles = await profiles();
+restoreWhatsAppSessions(initialProfiles).catch((error) => app.log.error(error));
+
+await app.listen({ port, host: '0.0.0.0' });
