@@ -70,10 +70,16 @@ server = replaceOnce(
 );
 server = replaceOnce(
   server,
+  "  const profile = await getProfile(profileId);\n  const existing = (await conversations(profileId)).find((x) => x.wa_jid === jid);\n  const now = new Date().toISOString();",
+  "  const profile = await getProfile(profileId);\n  const existing = (await conversations(profileId)).find((x) => x.wa_jid === jid);\n  if (existing && waMessageId) {\n    const duplicate = (await messages(existing.id)).some((m) => m.wa_message_id === waMessageId);\n    if (duplicate) {\n      app.log.info({ profileId, conversationId: existing.id, waMessageId }, 'Duplicate WhatsApp message ignored');\n      return;\n    }\n  }\n  const now = new Date().toISOString();",
+  'inbound WhatsApp idempotency before counters and AI',
+);
+server = replaceOnce(
+  server,
   "app.post('/api/demo/hot', async () => {",
   "app.post('/api/test/qualify', async (request, reply) => {\n  const body: any = request.body || {};\n  const profileId = String(body.profile_id || '').trim();\n  const text = String(body.text || '').trim();\n  if (!profileId || !text) return reply.code(400).send({ error: 'Profil und Testnachricht fehlen' });\n  if (text.length > 4000) return reply.code(400).send({ error: 'Testnachricht ist zu lang' });\n  const profile = await getProfile(profileId);\n  const now = new Date().toISOString();\n  const testConversation = {\n    id: 'playground', profile_id: profile.id, wa_jid: 'playground@s.whatsapp.net', contact_name: 'Test Lead',\n    state: 'AI_ACTIVE', hot_score: null, hot_reason: null, ai_turns: 0, unread_count: 0,\n    last_message_preview: text.slice(0, 180), last_message_at: now,\n  } as unknown as Conversation;\n  const testMessages = [{\n    id: 'playground-message', conversation_id: 'playground', direction: 'in', sender: 'lead', kind: 'text', text, created_at: now,\n  }] as unknown as StoredMessage[];\n  try {\n    const result = await qualifyLead(await settings() as LlmSettings, profile, testConversation, testMessages);\n    return { ok: true, ...result };\n  } catch (error) {\n    app.log.warn({ err: error }, 'Playground qualification failed');\n    return reply.code(502).send({ error: error instanceof Error ? error.message.slice(0, 300) : 'KI-Test fehlgeschlagen' });\n  }\n});\n\napp.post('/api/demo/hot', async () => {",
   'safe qualification playground route',
 );
 writeFileSync(serverPath, server);
 
-console.log('prepare-ux: clickability, settings semantics, safe playground, push activation and close affordance hardened');
+console.log('prepare-ux: clickability, settings semantics, idempotency, safe playground, push activation and close affordance hardened');
