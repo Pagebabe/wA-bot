@@ -8,7 +8,7 @@
     "build": "node scripts/prepare-build.mjs && tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "node scripts/prepare-build.mjs && tsc -p tsconfig.json --noEmit",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node scripts/prepare-tests.mjs && node --test tests/*.test.mjs"
   },
   "engines": {
     "node": ">=22"
