@@ -29,6 +29,11 @@ replaceOnce(
   "    await page.getByTitle('Profile verwalten').click(); await page.locator('#profileRows button').filter({hasText:'Smoke Profil'}).nth(0).click();",
   'profile row selector two',
 );
+replaceOnce(
+  "page.getByRole('button',{name:/Demo-HOT-Lead/})",
+  "page.getByRole('button',{name:/Demo-HOT/})",
+  'demo HOT label',
+);
 
 writeFileSync(path, source);
 console.log('prepare-tests: Chromium smoke harness normalized');
