@@ -35,7 +35,7 @@ export async function qualifyLead(
   messages: StoredMessage[],
 ): Promise<Qualification> {
   const apiKey = settings.llm_api_key_encrypted;
-  const model = settings.llm_model;
+  const model = profile.llm_model_override || settings.llm_model;
   const base = settings.llm_base_url;
   if (!apiKey || !model || !base) throw new Error('LLM is not configured');
 
@@ -59,7 +59,7 @@ export async function qualifyLead(
     headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model,
-      temperature: 0.35,
+      temperature: Number(profile.temperature ?? 0.35),
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: `Aktueller Chat:\n${transcript}\n\nBewerte jetzt den Lead.` },
@@ -80,7 +80,7 @@ export async function qualifyLead(
   };
 }
 
-export async function synthesizeVoice(settings: LlmSettings, text: string): Promise<Buffer> {
+export async function synthesizeVoice(settings: LlmSettings, text: string, voice = 'alloy'): Promise<Buffer> {
   const apiKey = settings.llm_api_key_encrypted;
   const base = settings.llm_base_url;
   if (!apiKey || !base) throw new Error('Voice API is not configured');
@@ -88,7 +88,7 @@ export async function synthesizeVoice(settings: LlmSettings, text: string): Prom
   const response = await fetch(`${normalizeBaseUrl(base)}/audio/speech`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, voice: 'alloy', input: text, format: 'mp3' }),
+    body: JSON.stringify({ model, voice, input: text, format: 'mp3' }),
   });
   if (!response.ok) throw new Error(`TTS HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
   return Buffer.from(await response.arrayBuffer());
