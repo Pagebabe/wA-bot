@@ -19,7 +19,7 @@ html = replaceOnce(
 html = replaceOnce(
   html,
   '<button class="icon" title="Schließen" onclick="closeConversation()">⋮</button>',
-  '<button class="icon" title="Chat schließen" aria-label="Chat schließen" onclick="closeConversation()">✕</button>',
+  '<button class="icon" title="Schließen" aria-label="Chat schließen" onclick="closeConversation()">✕</button>',
   'explicit chat close control',
 );
 
