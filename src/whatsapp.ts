@@ -185,6 +185,15 @@ export async function sendText(profileId: string, jid: string, text: string) {
   return sent?.key?.id || null;
 }
 
+export async function sendImageUrl(profileId: string, jid: string, imageUrl: string, caption = '') {
+  const session = sessions.get(profileId);
+  if (!session?.socket || session.status !== 'online') throw new Error('WhatsApp profile is not online');
+  const parsed = new URL(imageUrl);
+  if (parsed.protocol !== 'https:') throw new Error('Only HTTPS image URLs are allowed');
+  const sent = await session.socket.sendMessage(jid, { image: { url: parsed.toString() }, ...(caption.trim() ? { caption: caption.trim() } : {}) });
+  return sent?.key?.id || null;
+}
+
 export async function sendVoiceAudio(profileId: string, jid: string, audio: Buffer) {
   const session = sessions.get(profileId);
   if (!session?.socket || session.status !== 'online') throw new Error('WhatsApp profile is not online');
