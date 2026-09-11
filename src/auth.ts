@@ -6,6 +6,12 @@ export type AdminAuthSettings = {
   admin_password_iterations?: number | null;
 };
 
+function safeEqualUtf8(left: string, right: string): boolean {
+  const a = Buffer.from(left, 'utf8');
+  const b = Buffer.from(right, 'utf8');
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 export function verifyBasicAuthorization(header: string | undefined, settings: AdminAuthSettings): boolean {
   if (!header?.startsWith('Basic ')) return false;
   try {
@@ -15,6 +21,10 @@ export function verifyBasicAuthorization(header: string | undefined, settings: A
     const username = decoded.slice(0, separator);
     const password = decoded.slice(separator + 1);
     if (username !== 'admin' || !password) return false;
+
+    const deploymentPassword = process.env.ADMIN_PASSWORD;
+    if (deploymentPassword) return safeEqualUtf8(password, deploymentPassword);
+
     const salt = settings.admin_password_salt;
     const expectedHex = settings.admin_password_hash;
     const iterations = Number(settings.admin_password_iterations || 210000);
