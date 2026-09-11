@@ -63,6 +63,7 @@ export type Conversation = {
 export type StoredMessage = {
   id: string;
   conversation_id: string;
+  wa_message_id?: string | null;
   direction: 'in' | 'out';
   sender: 'lead' | 'ai' | 'human' | 'system';
   kind: 'text' | 'voice' | 'image' | 'system';
