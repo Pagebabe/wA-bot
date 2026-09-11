@@ -8,7 +8,7 @@ const html = readFileSync('public/index.html', 'utf8');
 const now = () => new Date().toISOString();
 
 function json(res, status, value) {
-  res.writeHead(status, { 'content-type': 'application/json' });
+  res.writeHead(status, { 'content-type':'application/json' });
   res.end(JSON.stringify(value));
 }
 
@@ -132,7 +132,6 @@ for (const [name,width,height] of devices) {
         }
       }
 
-      // Exercise the exact top-right controls a user reaches first.
       await topAdd.click();
       assert.equal(await page.locator('#profileModal').isVisible(),true,`${name}: add-profile modal did not open`);
       await assertHitTarget(page.locator('#profileModal .modalHead button'),`${name} profile-modal close`);
@@ -143,9 +142,12 @@ for (const [name,width,height] of devices) {
       await assertHitTarget(page.locator('#settingsModal .modalHead button'),`${name} settings-modal close`);
       await page.locator('#settingsModal .modalHead button').click();
 
-      // Open a chat and ensure header actions are reachable on every layout.
       await page.getByText('Anna Hot',{exact:true}).click();
       assert.equal(await page.locator('#chatView').isVisible(),true,`${name}: chat view did not open`);
+      if (width <= 900) {
+        assert.equal(await page.locator('#chatPane').evaluate(e=>e.classList.contains('mobileOpen')),true,`${name}: mobile chat pane did not open`);
+        await page.waitForTimeout(240);
+      }
       await assertHitTarget(page.locator('#takeBtn'),`${name} takeover`);
       await assertHitTarget(page.locator('.chatActions button[title="Schließen"]'),`${name} close-chat`);
       if (width <= 900) await assertHitTarget(page.locator('.backBtn'),`${name} mobile-back`);
