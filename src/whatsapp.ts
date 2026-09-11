@@ -1,6 +1,7 @@
 import makeWASocket, {
   BufferJSON,
   DisconnectReason,
+  downloadMediaMessage,
   initAuthCreds,
   makeCacheableSignalKeyStore,
   proto,
@@ -19,11 +20,18 @@ type Session = {
   reconnecting: boolean;
 };
 
+type InboundKind = 'text' | 'voice';
+
 const sessions = new Map<string, Session>();
-let inboundHandler: ((profileId: string, jid: string, name: string | null, text: string, waMessageId: string | null, raw: unknown) => Promise<void>) | null = null;
+let inboundHandler: ((profileId: string, jid: string, name: string | null, text: string, waMessageId: string | null, raw: unknown, kind: InboundKind) => Promise<void>) | null = null;
+let voiceTranscriber: ((audio: Buffer, mime: string) => Promise<string>) | null = null;
 
 export function setInboundHandler(handler: typeof inboundHandler) {
   inboundHandler = handler;
+}
+
+export function setVoiceTranscriber(handler: typeof voiceTranscriber) {
+  voiceTranscriber = handler;
 }
 
 async function authRead(profileId: string, keys: string[]): Promise<Map<string, string>> {
@@ -147,9 +155,20 @@ export async function connectWhatsApp(profile: Profile): Promise<void> {
       if (!msg?.key?.remoteJid || msg.key.fromMe) continue;
       const jid = String(msg.key.remoteJid);
       if (jid === 'status@broadcast' || jid.endsWith('@g.us')) continue;
-      const text = extractText(msg.message);
+      let text = extractText(msg.message);
+      let kind: InboundKind = 'text';
+      if (!text && msg.message?.audioMessage && voiceTranscriber) {
+        try {
+          const media = await (downloadMediaMessage as any)(msg, 'buffer', {}, { logger, reuploadRequest: socket.updateMediaMessage });
+          const buffer = Buffer.isBuffer(media) ? media : Buffer.from(media);
+          text = await voiceTranscriber(buffer, msg.message.audioMessage.mimetype || 'audio/ogg');
+          kind = 'voice';
+        } catch (error) {
+          logger.error(error);
+        }
+      }
       if (!text || !inboundHandler) continue;
-      await inboundHandler(profile.id, jid, msg.pushName || null, text, msg.key.id || null, msg).catch((error) => logger.error(error));
+      await inboundHandler(profile.id, jid, msg.pushName || null, text, msg.key.id || null, msg, kind).catch((error) => logger.error(error));
     }
   });
 }
@@ -163,6 +182,13 @@ export async function sendText(profileId: string, jid: string, text: string) {
   const session = sessions.get(profileId);
   if (!session?.socket || session.status !== 'online') throw new Error('WhatsApp profile is not online');
   const sent = await session.socket.sendMessage(jid, { text });
+  return sent?.key?.id || null;
+}
+
+export async function sendVoiceAudio(profileId: string, jid: string, audio: Buffer) {
+  const session = sessions.get(profileId);
+  if (!session?.socket || session.status !== 'online') throw new Error('WhatsApp profile is not online');
+  const sent = await session.socket.sendMessage(jid, { audio, mimetype: 'audio/mpeg', ptt: true });
   return sent?.key?.id || null;
 }
 
