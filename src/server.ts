@@ -4,6 +4,7 @@ import fastifyStatic from '@fastify/static';
 import { join } from 'node:path';
 import { gateway, type Conversation, type Profile, type StoredMessage } from './store.js';
 import { qualifyLead, synthesizeVoice, transcribeAudio, type LlmSettings } from './ai.js';
+import { verifyBasicAuthorization } from './auth.js';
 import {
   connectWhatsApp,
   getConnection,
@@ -17,13 +18,42 @@ import {
 
 const app = Fastify({ logger: true });
 await app.register(cors, { origin: true, credentials: true });
-await app.register(fastifyStatic, { root: join(process.cwd(), 'public'), prefix: '/' });
 
 const port = Number(process.env.PORT || 3000);
+let adminAuthCache: { salt: string; hash: string; iterations: number; expiresAt: number } | null = null;
 
 async function settings(): Promise<any> {
   return (await gateway<{ data: any }>('get_settings')).data;
 }
+
+async function getAdminAuthSettings() {
+  if (adminAuthCache && adminAuthCache.expiresAt > Date.now()) {
+    return {
+      admin_password_salt: adminAuthCache.salt,
+      admin_password_hash: adminAuthCache.hash,
+      admin_password_iterations: adminAuthCache.iterations,
+    };
+  }
+  const current = await settings();
+  adminAuthCache = {
+    salt: String(current.admin_password_salt || ''),
+    hash: String(current.admin_password_hash || ''),
+    iterations: Number(current.admin_password_iterations || 210000),
+    expiresAt: Date.now() + 60_000,
+  };
+  return current;
+}
+
+app.addHook('onRequest', async (request, reply) => {
+  if (request.url === '/health') return;
+  const authSettings = await getAdminAuthSettings();
+  if (!verifyBasicAuthorization(request.headers.authorization, authSettings)) {
+    reply.header('WWW-Authenticate', 'Basic realm="wA-bot", charset="UTF-8"');
+    return reply.code(401).type('text/plain').send('Anmeldung erforderlich');
+  }
+});
+
+await app.register(fastifyStatic, { root: join(process.cwd(), 'public'), prefix: '/' });
 
 async function profiles(): Promise<Profile[]> {
   return (await gateway<{ data: Profile[] }>('list_profiles')).data || [];
@@ -130,19 +160,24 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw, kind) => 
     }
 
     if (result.reply) {
-      let reply = result.reply;
+      let outgoingText = result.reply;
       const firstAi = !allMessages.some((m) => m.sender === 'ai');
       if (firstAi && currentSettings.ai_disclosure_enabled !== false) {
-        reply = `Hinweis: Du schreibst gerade mit einem KI-Assistenten. ${reply}`;
+        outgoingText = `Hinweis: Du schreibst gerade mit einem KI-Assistenten. ${outgoingText}`;
       }
-      let sentId: string | null;
+      let sentId: string | null = null;
       let outgoingKind: 'text' | 'voice' = 'text';
       if (profile.voice_mode === 'ai_tts' && currentSettings.voice_enabled) {
-        const audio = await synthesizeVoice(currentSettings as LlmSettings, reply);
-        sentId = await sendVoiceAudio(profileId, jid, audio);
-        outgoingKind = 'voice';
+        try {
+          const audio = await synthesizeVoice(currentSettings as LlmSettings, outgoingText);
+          sentId = await sendVoiceAudio(profileId, jid, audio);
+          outgoingKind = 'voice';
+        } catch (voiceError) {
+          app.log.warn({ err: voiceError }, 'TTS failed, falling back to text');
+          sentId = await sendText(profileId, jid, outgoingText);
+        }
       } else {
-        sentId = await sendText(profileId, jid, reply);
+        sentId = await sendText(profileId, jid, outgoingText);
       }
       await addMessage({
         conversation_id: conversation.id,
@@ -150,11 +185,11 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw, kind) => 
         direction: 'out',
         sender: 'ai',
         kind: outgoingKind,
-        text: reply,
+        text: outgoingText,
       });
       await updateConversation(conversation.id, {
         ai_turns: turn,
-        last_message_preview: outgoingKind === 'voice' ? `🎙 ${reply.slice(0, 160)}` : reply.slice(0, 180),
+        last_message_preview: outgoingKind === 'voice' ? `🎙 ${outgoingText.slice(0, 160)}` : outgoingText.slice(0, 180),
         last_message_at: new Date().toISOString(),
       });
     }
@@ -164,7 +199,7 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw, kind) => 
   }
 });
 
-app.get('/health', async () => ({ ok: true, service: 'wa-bot', version: '0.3.0' }));
+app.get('/health', async () => ({ ok: true, service: 'wa-bot', version: '0.4.0' }));
 
 app.get('/api/bootstrap', async () => {
   const [p, c, s] = await Promise.all([profiles(), conversations(), settings()]);
@@ -179,7 +214,7 @@ app.get('/api/status', async () => {
   const [p, c, s] = await Promise.all([profiles(), conversations(), settings()]);
   return {
     product: 'wA-bot',
-    version: '0.3.0',
+    version: '0.4.0',
     profiles: p.length,
     online: p.filter((x) => getConnection(x.id).status === 'online').length,
     hot: c.filter((x) => x.state === 'HOT').length,
@@ -237,6 +272,10 @@ app.post('/api/profiles', async (request, reply) => {
     max_ai_turns: Number(body.max_ai_turns ?? 8),
     handoff_behavior: body.handoff_behavior || 'stop',
     voice_mode: body.voice_mode || 'off',
+    llm_model_override: body.llm_model_override || null,
+    temperature: Number(body.temperature ?? 0.35),
+    voice_name: body.voice_name || 'alloy',
+    media: Array.isArray(body.media) ? body.media : [],
     preset_name: body.preset_name || null,
   };
   Object.keys(data).forEach((k) => (data as any)[k] === undefined && delete (data as any)[k]);
@@ -285,8 +324,7 @@ app.post('/api/conversations/:id/takeover', async (request) => {
 });
 
 app.post('/api/conversations/:id/return-ai', async (request) => {
-  const c = await updateConversation((request.params as any).id, { state: 'AI_ACTIVE', unread_count: 0, hot_reason: null, hot_score: null });
-  return c;
+  return updateConversation((request.params as any).id, { state: 'AI_ACTIVE', unread_count: 0, hot_reason: null, hot_score: null });
 });
 
 app.post('/api/conversations/:id/close', async (request) => updateConversation((request.params as any).id, { state: 'CLOSED', unread_count: 0 }));
@@ -300,14 +338,18 @@ app.post('/api/conversations/:id/send', async (request, reply) => {
   if (!c) return reply.code(404).send({ error: 'Chat nicht gefunden' });
   const profile = await getProfile(c.profile_id);
   const currentSettings = await settings();
-  const wantsVoice = Boolean(body.voice);
+  const wantsVoice = Boolean(body.voice) || (Boolean(currentSettings.voice_enabled) && profile.voice_mode !== 'off');
   let sentId: string | null;
   let outgoingKind: 'text' | 'voice' = 'text';
   if (wantsVoice) {
-    if (!currentSettings.voice_enabled || profile.voice_mode === 'off') return reply.code(400).send({ error: 'Sprachmodus ist für dieses Profil nicht aktiv.' });
-    const audio = await synthesizeVoice(currentSettings as LlmSettings, text);
-    sentId = await sendVoiceAudio(c.profile_id, c.wa_jid, audio);
-    outgoingKind = 'voice';
+    try {
+      const audio = await synthesizeVoice(currentSettings as LlmSettings, text);
+      sentId = await sendVoiceAudio(c.profile_id, c.wa_jid, audio);
+      outgoingKind = 'voice';
+    } catch (voiceError) {
+      app.log.warn({ err: voiceError }, 'Human TTS failed, falling back to text');
+      sentId = await sendText(c.profile_id, c.wa_jid, text);
+    }
   } else {
     sentId = await sendText(c.profile_id, c.wa_jid, text);
   }
