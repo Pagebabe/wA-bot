@@ -43,6 +43,7 @@ export type Profile = {
   temperature?: number | null;
   voice_name?: string | null;
   media?: unknown[] | null;
+  quick_replies?: string[] | null;
   preset_name?: string | null;
 };
 
