@@ -1,5 +1,5 @@
-const gatewayUrl = process.env.SUPABASE_GATEWAY_URL;
-const gatewaySecret = process.env.WA_BOT_GATEWAY_SECRET;
+const gatewayUrl = process.env.SUPABASE_GATEWAY_URL ?? '';
+const gatewaySecret = process.env.WA_BOT_GATEWAY_SECRET ?? '';
 
 if (!gatewayUrl || !gatewaySecret) {
   throw new Error('Missing SUPABASE_GATEWAY_URL or WA_BOT_GATEWAY_SECRET');
@@ -14,7 +14,7 @@ export async function gateway<T = unknown>(action: string, payload: Record<strin
     },
     body: JSON.stringify({ action, ...payload }),
   });
-  const body = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+  const body: any = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
   if (!response.ok) {
     const message = typeof body?.error === 'string' ? body.error : `Gateway error ${response.status}`;
     throw new Error(message);
