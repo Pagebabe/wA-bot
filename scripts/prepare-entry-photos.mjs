@@ -40,7 +40,7 @@ let html = readFileSync('public/index.html', 'utf8');
 html = replaceOnce(
   html,
   '</style>',
-  `.entryPhotoGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.entryPhotoBtn{border:1px solid var(--line);background:#182229;border-radius:12px;padding:10px;text-align:left;color:inherit}.entryPhotoBtn:disabled{opacity:.45;cursor:not-allowed}.entryPhotoBtn img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:9px;display:block;margin-bottom:8px}@media(max-width:520px){.entryPhotoGrid{grid-template-columns:1fr}}</style>`,
+  `.composer{grid-template-columns:auto auto auto minmax(0,1fr) auto}.entryPhotoGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.entryPhotoBtn{border:1px solid var(--line);background:#182229;border-radius:12px;padding:10px;text-align:left;color:inherit}.entryPhotoBtn:disabled{opacity:.45;cursor:not-allowed}.entryPhotoBtn img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:9px;display:block;margin-bottom:8px}@media(max-width:520px){.entryPhotoGrid{grid-template-columns:1fr}.composer{grid-template-columns:auto auto auto minmax(0,1fr) auto;gap:5px}.composer .icon{width:36px;height:36px}.sendBtn{width:38px;height:38px}}</style>`,
   'entry photo CSS',
 );
 html = replaceOnce(
