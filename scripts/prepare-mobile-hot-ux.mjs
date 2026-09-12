@@ -14,9 +14,9 @@ if (!html.includes('id="mobileTakeover"')) {
 }
 
 if (!html.includes('class="icon closeChatAction"')) {
-  const marker = 'class="icon" title="Schließen" onclick="closeConversation()"';
+  const marker = 'class="icon" title="Schließen" aria-label="Chat schließen" onclick="closeConversation()"';
   if (!html.includes(marker)) throw new Error('prepare-mobile-hot-ux: close control marker missing');
-  html = html.replace(marker, 'class="icon closeChatAction" title="Schließen" onclick="closeConversation()"');
+  html = html.replace(marker, 'class="icon closeChatAction" title="Schließen" aria-label="Chat schließen" onclick="closeConversation()"');
 }
 
 if (!html.includes('function syncMobileHotUi()')) {
