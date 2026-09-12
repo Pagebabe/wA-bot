@@ -7,6 +7,8 @@ const replacements = [
   ['onclick="openMediaPicker()" disabled>🖼', 'onclick="openMediaPicker()">🖼'],
   ['onclick="sendProfileLocation()" disabled>📍', 'onclick="sendProfileLocation()">📍'],
   ['onclick="openEntryPhotoPicker()" disabled>🏠', 'onclick="openEntryPhotoPicker()">🏠'],
+  ['onclick="sendMessage()" disabled>➤', 'onclick="sendMessage()">➤'],
+  ["document.querySelector('.sendBtn').disabled=!canWrite;", "document.querySelector('.sendBtn').disabled=false;"],
   ["$('mediaBtn').disabled=!canWrite;$('locationBtn').disabled=!canWrite;$('entryPhotoBtn').disabled=!canWrite;renderQuickBar()", "$('mediaBtn').disabled=false;$('locationBtn').disabled=false;$('entryPhotoBtn').disabled=false;renderQuickBar()"],
 ];
 
@@ -17,4 +19,4 @@ for (const [before, after] of replacements) {
 }
 
 writeFileSync(path, html);
-console.log('prepare-composer-actions: footer action buttons stay clickable and explain takeover requirement');
+console.log('prepare-composer-actions: footer buttons stay clickable and explain takeover requirement');
