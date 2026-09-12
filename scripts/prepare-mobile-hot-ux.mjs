@@ -13,8 +13,10 @@ if (!html.includes('id="mobileTakeover"')) {
   html = html.replace(marker, '<div id="mobileTakeover" class="mobileTakeover"><div class="mobileTakeoverCopy"><b>🔥 Bereit für Übernahme</b><span>KI ist gestoppt · du kannst jetzt antworten</span></div><button class="takeBtn" onclick="takeover()">Übernehmen</button></div>' + marker);
 }
 
-if (!html.includes('closeChatAction')) {
-  html = html.replace('class="icon" title="Schließen" onclick="closeConversation()"', 'class="icon closeChatAction" title="Schließen" onclick="closeConversation()"');
+if (!html.includes('class="icon closeChatAction"')) {
+  const marker = 'class="icon" title="Schließen" onclick="closeConversation()"';
+  if (!html.includes(marker)) throw new Error('prepare-mobile-hot-ux: close control marker missing');
+  html = html.replace(marker, 'class="icon closeChatAction" title="Schließen" onclick="closeConversation()"');
 }
 
 if (!html.includes('function syncMobileHotUi()')) {
