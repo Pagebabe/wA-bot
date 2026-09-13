@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
+// Deployment sync marker: 2026-09-14 — no runtime behavior change.
 const path = 'scripts/prepare-quick-actions.mjs';
 let source = readFileSync(path, 'utf8');
 
