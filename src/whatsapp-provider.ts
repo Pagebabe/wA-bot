@@ -28,9 +28,12 @@ const evolutionWebhookSecret = String(process.env.EVOLUTION_WEBHOOK_SECRET || ''
 const publicBase = String(process.env.PUBLIC_BASE_URL || process.env.RAILWAY_PUBLIC_DOMAIN || '').trim().replace(/\/$/, '');
 const evolutionConnections = new Map<string, ConnectionState>();
 const instanceToProfile = new Map<string, string>();
+const refreshQueued = new Set<string>();
+const lastRefreshAt = new Map<string, number>();
 let inboundHandler: InboundHandler | null = null;
 let voiceTranscriber: VoiceTranscriber | null = null;
 let watchdogStarted = false;
+let maintenanceQueue: Promise<void> = Promise.resolve();
 
 export function whatsappProviderName() {
   return provider === 'evolution' ? 'evolution' : 'baileys';
@@ -179,12 +182,32 @@ async function refreshEvolutionConnection(profileId: string) {
   if (account) updateEvolutionConnection(profileId, { account });
 }
 
+function enqueueMaintenance(task: () => Promise<void>) {
+  maintenanceQueue = maintenanceQueue.catch(() => undefined).then(task);
+  return maintenanceQueue;
+}
+
+function scheduleEvolutionRefresh(profileId: string, force = false) {
+  const now = Date.now();
+  if (refreshQueued.has(profileId)) return;
+  if (!force && now - (lastRefreshAt.get(profileId) || 0) < 60_000) return;
+  refreshQueued.add(profileId);
+  lastRefreshAt.set(profileId, now);
+  void enqueueMaintenance(async () => {
+    try {
+      await refreshEvolutionConnection(profileId);
+    } finally {
+      refreshQueued.delete(profileId);
+    }
+  });
+}
+
 function startEvolutionWebhookWatchdog() {
   if (watchdogStarted || !isEvolution()) return;
   watchdogStarted = true;
   const timer = setInterval(() => {
     for (const name of instanceToProfile.keys()) {
-      void ensureEvolutionWebhook(name).catch(() => undefined);
+      void enqueueMaintenance(() => ensureEvolutionWebhook(name));
     }
   }, 5 * 60_000);
   timer.unref?.();
@@ -233,13 +256,13 @@ export async function connectWhatsApp(profile: Profile): Promise<void> {
     qr: qrDataUri(result),
     account: accountFromEvolution(result) || evolutionConnections.get(profile.id)?.account || null,
   });
-  void refreshEvolutionConnection(profile.id).catch(() => undefined);
+  scheduleEvolutionRefresh(profile.id, true);
 }
 
 export function getConnection(profileId: string) {
   if (!isEvolution()) return baileys.getConnection(profileId) as any;
   const current = evolutionConnections.get(profileId) || { status: 'offline', qr: null, account: null };
-  void refreshEvolutionConnection(profileId).catch(() => undefined);
+  scheduleEvolutionRefresh(profileId);
   return current;
 }
 
@@ -293,18 +316,20 @@ export async function unlinkWhatsApp(profileId: string) {
   await evolutionRequest(`/instance/logout/${encodeURIComponent(name)}`, { method: 'DELETE' }, true);
   evolutionConnections.delete(profileId);
   instanceToProfile.delete(name);
+  refreshQueued.delete(profileId);
+  lastRefreshAt.delete(profileId);
 }
 
 export async function restoreWhatsAppSessions(profiles: Profile[]) {
   if (!isEvolution()) return baileys.restoreWhatsAppSessions(profiles);
   requireEvolutionConfig();
   startEvolutionWebhookWatchdog();
-  await Promise.all(profiles.map(async (profile) => {
+  for (const profile of profiles) {
     const name = instanceName(profile.id);
     instanceToProfile.set(name, profile.id);
-    await refreshEvolutionConnection(profile.id).catch(() => undefined);
-    await ensureEvolutionWebhook(name).catch(() => undefined);
-  }));
+    scheduleEvolutionRefresh(profile.id, true);
+    void enqueueMaintenance(() => ensureEvolutionWebhook(name));
+  }
 }
 
 export function isEvolutionWebhookAuthorized(value: string | string[] | undefined) {
@@ -325,7 +350,7 @@ export async function handleEvolutionWebhook(payload: any) {
     const status = connectionStatus(payload?.data || payload);
     const account = accountFromEvolution(payload?.data || payload);
     updateEvolutionConnection(profileId, { status, qr: status === 'online' ? null : evolutionConnections.get(profileId)?.qr || null, ...(account ? { account } : {}) });
-    if (status === 'online') void ensureEvolutionWebhook(name).catch(() => undefined);
+    if (status === 'online') void enqueueMaintenance(() => ensureEvolutionWebhook(name));
     return;
   }
 
