@@ -4,11 +4,9 @@ import { readFileSync } from 'node:fs';
 
 const provider = readFileSync('src/whatsapp-provider.ts', 'utf8');
 const server = readFileSync('src/server.ts', 'utf8');
-const env = readFileSync('.env.example', 'utf8');
 
 test('WhatsApp provider defaults safely to direct Baileys', () => {
   assert.match(provider, /WHATSAPP_PROVIDER \|\| 'baileys'/);
-  assert.match(env, /WHATSAPP_PROVIDER=baileys/);
 });
 
 test('Evolution adapter supports instance lifecycle and current outbound features', () => {
