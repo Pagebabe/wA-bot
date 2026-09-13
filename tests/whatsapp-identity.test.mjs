@@ -16,5 +16,5 @@ test('profile UI shows linked WhatsApp number and name', () => {
   assert.match(html, /function waAccountLabel\(p\)/);
   assert.match(html, /Verbundenes WhatsApp:/);
   assert.match(html, /waAccountLabel\(p\)\|\|p\.connection\?\.status/);
-  assert.match(html, /waAccountLabel\(p\)\|\|p\.location\|\|p\.phone_label/);
+  assert.match(html, /waAccountLabel\(p\)\|\|p\.desired_location\|\|p\.location\|\|p\.phone_label/);
 });
