@@ -38,6 +38,15 @@ test('Evolution webhook config is reconciled to survive provider restarts', () =
   assert.match(provider, /5 \* 60_000/);
 });
 
+test('Evolution fleet maintenance is serialized and connection refreshes are throttled', () => {
+  assert.match(provider, /maintenanceQueue/);
+  assert.match(provider, /refreshQueued/);
+  assert.match(provider, /lastRefreshAt/);
+  assert.match(provider, /60_000/);
+  assert.match(provider, /enqueueMaintenance/);
+  assert.doesNotMatch(provider, /Promise\.all\(profiles\.map/);
+});
+
 test('server imports WhatsApp through provider abstraction after build transform', () => {
   assert.match(server, /from '\.\/whatsapp-provider\.js'/);
   assert.doesNotMatch(server, /from '\.\/whatsapp\.js'/);
