@@ -56,8 +56,8 @@ html = replaceRequired(
 
 html = replaceRequired(
   html,
-  "function renderProfileRows(){$('profileRows').innerHTML=state.profiles.map(p=>`<button class=\"profileManage\" onclick=\"closeModal('profilesModal');editProfile('${p.id}')\"><span class=\"avatar\">${esc(initials(p.name))}</span><span><b>${esc(p.name)}</b><br><small style=\"color:var(--muted)\">${esc(p.location||p.phone_label||'Nicht eingerichtet')} · ${esc(p.connection?.status||p.status||'offline')}</small></span><span>›</span></button>`).join('')||'<div class=\"emptyList\">Noch keine Profile</div>'}",
-  "function renderProfileRows(){$('profileRows').innerHTML=state.profiles.map(p=>`<button class=\"profileManage\" onclick=\"closeModal('profilesModal');editProfile('${p.id}')\"><span class=\"avatar\">${esc(initials(p.name))}</span><span><b>${esc(p.name)}</b><br><small style=\"color:var(--muted)\">${esc(waAccountLabel(p)||p.location||p.phone_label||'Nicht eingerichtet')} · ${esc(p.connection?.status||p.status||'offline')}</small></span><span>›</span></button>`).join('')||'<div class=\"emptyList\">Noch keine Profile</div>'}",
+  "${esc(p.desired_location||p.location||p.phone_label||'Nicht eingerichtet')} · ${esc(p.connection?.status||p.status||'offline')}",
+  "${esc(waAccountLabel(p)||p.desired_location||p.location||p.phone_label||'Nicht eingerichtet')} · ${esc(p.connection?.status||p.status||'offline')}",
   'profile list account identity',
 );
 
