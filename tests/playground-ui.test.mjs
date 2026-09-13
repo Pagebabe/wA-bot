@@ -9,7 +9,7 @@ const html = readFileSync('public/index.html','utf8');
 
 test('qualification playground route cannot send WhatsApp messages', () => {
   const start = serverSource.indexOf("app.post('/api/test/qualify'");
-  const end = serverSource.indexOf("app.post('/api/demo/hot'", start);
+  const end = serverSource.indexOf("app.post('/api/conversations/:id/send-entry-photo'", start);
   assert.ok(start >= 0 && end > start, 'playground route missing');
   const route = serverSource.slice(start,end);
   assert.match(route,/qualifyLead/);
