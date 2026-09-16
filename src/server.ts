@@ -4,27 +4,47 @@ import fastifyStatic from '@fastify/static';
 import { join } from 'node:path';
 import { gateway, type Conversation, type Profile, type StoredMessage } from './store.js';
 import { qualifyLead, synthesizeVoice, transcribeAudio, type LlmSettings } from './ai.js';
+import { CHAT_POLICY_VERSION, GLOBAL_HOT_THRESHOLD, GLOBAL_MAX_AI_TURNS, SAVED_REPLIES } from './chat-policy.js';
+import { autocompletePlaces, getPlaceDetails } from './places.js';
 import { verifyBasicAuthorization } from './auth.js';
 import { getVapidPublicKey, notifyHotLead, savePushSubscription } from './push.js';
+import { persistInboundMessage } from './inbound-message.js';
 import {
   connectWhatsApp,
   getConnection,
   restoreWhatsAppSessions,
   sendText,
+  sendImageUrl,
+  sendLocation,
   sendVoiceAudio,
   setInboundHandler,
   setVoiceTranscriber,
   unlinkWhatsApp,
-} from './whatsapp.js';
+  handleEvolutionWebhook,
+  isEvolutionWebhookAuthorized,
+  whatsappProviderName,
+} from './whatsapp-provider.js';
 
 const app = Fastify({ logger: true });
-await app.register(cors, { origin: true, credentials: true });
+await app.register(cors, { origin: false });
 
 const port = Number(process.env.PORT || 3000);
 let adminAuthCache: { salt: string; hash: string; iterations: number; expiresAt: number } | null = null;
 
 async function settings(): Promise<any> {
-  return (await gateway<{ data: any }>('get_settings')).data;
+  const stored = (await gateway<{ data: any }>('get_settings')).data || {};
+  return {
+    ...stored,
+    llm_base_url: stored.llm_base_url || process.env.LLM_BASE_URL,
+    llm_model: stored.llm_model || process.env.LLM_MODEL,
+    llm_api_key_encrypted: process.env.LLM_API_KEY || stored.llm_api_key_encrypted,
+    tts_api_key: process.env.ELEVENLABS_API_KEY || stored.tts_api_key,
+    tts_voice_id: process.env.ELEVENLABS_VOICE_ID || stored.tts_voice_id,
+    tts_model: process.env.ELEVENLABS_MODEL_ID || stored.tts_model,
+    stt_api_key: process.env.OPENAI_API_KEY || stored.stt_api_key,
+    stt_base_url: process.env.STT_BASE_URL || stored.stt_base_url || 'https://api.openai.com',
+    stt_model: process.env.STT_MODEL || stored.stt_model,
+  };
 }
 
 async function getAdminAuthSettings() {
@@ -46,7 +66,7 @@ async function getAdminAuthSettings() {
 }
 
 app.addHook('onRequest', async (request, reply) => {
-  if (request.url === '/health') return;
+  if (request.url === '/health' || request.url === '/api/evolution/webhook') return;
   const authSettings = await getAdminAuthSettings();
   if (!verifyBasicAuthorization(request.headers.authorization, authSettings)) {
     reply.header('WWW-Authenticate', 'Basic realm="wA-bot", charset="UTF-8"');
@@ -74,9 +94,13 @@ function safeSettings(raw: any) {
     llm_base_url: raw?.llm_base_url || 'https://api.openai.com',
     llm_model: raw?.llm_model || 'gpt-5-mini',
     has_llm_key: Boolean(raw?.llm_api_key_encrypted),
+    llm_key_source: process.env.LLM_API_KEY ? 'environment' : 'database',
     voice_enabled: Boolean(raw?.voice_enabled),
     voice_provider: raw?.voice_provider || 'same-api',
     voice_model: raw?.voice_model || 'gpt-4o-mini-tts',
+    has_tts_key: Boolean(raw?.tts_api_key && raw?.tts_voice_id),
+    has_stt_key: Boolean(raw?.stt_api_key),
+    chat_policy_version: CHAT_POLICY_VERSION,
     ai_disclosure_enabled: raw?.ai_disclosure_enabled !== false,
   };
 }
@@ -104,39 +128,30 @@ setVoiceTranscriber(async (audio, mime) => {
 setInboundHandler(async (profileId, jid, name, text, waMessageId, raw, kind) => {
   const profile = await getProfile(profileId);
   const existing = (await conversations(profileId)).find((x) => x.wa_jid === jid);
-  const now = new Date().toISOString();
-  let conversation: Conversation;
-
-  if (existing) {
-    conversation = await updateConversation(existing.id, {
-      contact_name: name || existing.contact_name,
-      last_message_preview: kind === 'voice' ? `🎙 ${text.slice(0, 160)}` : text.slice(0, 180),
-      last_message_at: now,
-      unread_count: (existing.unread_count || 0) + 1,
-    });
-  } else {
-    conversation = (await gateway<{ data: Conversation }>('upsert_conversation', {
-      data: {
-        profile_id: profileId,
-        wa_jid: jid,
-        contact_name: name,
-        state: 'AI_ACTIVE',
-        last_message_preview: kind === 'voice' ? `🎙 ${text.slice(0, 160)}` : text.slice(0, 180),
-        last_message_at: now,
-        unread_count: 1,
-      },
-    })).data;
+  if (existing && waMessageId) {
+    const duplicate = (await messages(existing.id)).some((m) => m.wa_message_id === waMessageId);
+    if (duplicate) {
+      app.log.info({ profileId, conversationId: existing.id, waMessageId }, 'Duplicate WhatsApp message ignored');
+      return;
+    }
   }
-
-  await addMessage({
-    conversation_id: conversation.id,
-    wa_message_id: waMessageId,
-    direction: 'in',
-    sender: 'lead',
-    kind,
+  const now = new Date().toISOString();
+  let conversation = await persistInboundMessage({
+    findConversation: async () => existing || null,
+    updateConversation: async (id, patch) => updateConversation(id, patch),
+    upsertConversation: async (data) => (await gateway<{ data: Conversation }>('upsert_conversation', { data })).data,
+    addMessage: async (data) => addMessage(data),
+  }, {
+    profileId,
+    jid,
+    name,
     text,
+    waMessageId,
     raw,
-  });
+    kind,
+    botEnabled: profile.bot_enabled,
+    now,
+  }) as Conversation;
 
   if (!profile.bot_enabled || ['HOT', 'HUMAN_ACTIVE', 'CLOSED', 'PAUSED'].includes(conversation.state)) return;
 
@@ -144,8 +159,14 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw, kind) => 
     const allMessages = await messages(conversation.id);
     const currentSettings = await settings();
     const result = await qualifyLead(currentSettings as LlmSettings, profile, conversation, allMessages);
+    const latestConversation = (await conversations(profileId)).find((x) => x.id === conversation.id);
+    if (!latestConversation || latestConversation.state !== 'AI_ACTIVE') {
+      app.log.info({ profileId, conversationId: conversation.id, state: latestConversation?.state }, 'AI result discarded after ownership/state changed');
+      return;
+    }
+    conversation = latestConversation;
     const turn = Number(conversation.ai_turns || 0) + 1;
-    const forceHuman = turn >= Number(profile.max_ai_turns || 8);
+    const forceHuman = turn >= GLOBAL_MAX_AI_TURNS;
 
     if (result.hot || forceHuman) {
       const hotReason = forceHuman ? 'Maximale KI-Runden erreicht – manuelle Übernahme erforderlich.' : result.reason;
@@ -173,31 +194,18 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw, kind) => 
       if (firstAi && currentSettings.ai_disclosure_enabled !== false) {
         outgoingText = `Hinweis: Du schreibst gerade mit einem KI-Assistenten. ${outgoingText}`;
       }
-      let sentId: string | null = null;
-      let outgoingKind: 'text' | 'voice' = 'text';
-      if (profile.voice_mode === 'ai_tts' && currentSettings.voice_enabled) {
-        try {
-          const audio = await synthesizeVoice(currentSettings as LlmSettings, outgoingText, profile.voice_name || 'alloy');
-          sentId = await sendVoiceAudio(profileId, jid, audio);
-          outgoingKind = 'voice';
-        } catch (voiceError) {
-          app.log.warn({ err: voiceError }, 'TTS failed, falling back to text');
-          sentId = await sendText(profileId, jid, outgoingText);
-        }
-      } else {
-        sentId = await sendText(profileId, jid, outgoingText);
-      }
+      const sentId = await sendText(profileId, jid, outgoingText);
       await addMessage({
         conversation_id: conversation.id,
         wa_message_id: sentId,
         direction: 'out',
         sender: 'ai',
-        kind: outgoingKind,
+        kind: 'text',
         text: outgoingText,
       });
       await updateConversation(conversation.id, {
         ai_turns: turn,
-        last_message_preview: outgoingKind === 'voice' ? `🎙 ${outgoingText.slice(0, 160)}` : outgoingText.slice(0, 180),
+        last_message_preview: outgoingText.slice(0, 180),
         last_message_at: new Date().toISOString(),
       });
     }
@@ -207,7 +215,14 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw, kind) => 
   }
 });
 
-app.get('/health', async () => ({ ok: true, service: 'wa-bot', version: '0.4.0' }));
+app.post('/api/evolution/webhook', async (request, reply) => {
+  const secret = request.headers['x-wa-bot-secret'];
+  if (!isEvolutionWebhookAuthorized(secret)) return reply.code(401).send({ error: 'Ungültiger Webhook-Schlüssel' });
+  await handleEvolutionWebhook(request.body);
+  return { ok: true };
+});
+
+app.get('/health', async () => ({ ok: true, service: 'wa-bot', version: '0.4.0', whatsappProvider: whatsappProviderName() }));
 
 app.get('/api/bootstrap', async () => {
   const [p, c, s] = await Promise.all([profiles(), conversations(), settings()]);
@@ -215,7 +230,24 @@ app.get('/api/bootstrap', async () => {
     profiles: p.map((profile) => ({ ...profile, connection: getConnection(profile.id) })),
     conversations: c,
     settings: safeSettings(s),
+    savedReplies: SAVED_REPLIES,
   };
+});
+
+app.get('/api/places/autocomplete', async (request, reply) => {
+  try {
+    return { suggestions: await autocompletePlaces(String((request.query as any)?.q || '')) };
+  } catch (error) {
+    return reply.code(503).send({ error: error instanceof Error ? error.message : 'Adresssuche fehlgeschlagen' });
+  }
+});
+
+app.get('/api/places/details', async (request, reply) => {
+  try {
+    return { location: await getPlaceDetails(String((request.query as any)?.placeId || '')) };
+  } catch (error) {
+    return reply.code(503).send({ error: error instanceof Error ? error.message : 'Adressauflösung fehlgeschlagen' });
+  }
 });
 
 app.get('/api/status', async () => {
@@ -286,19 +318,24 @@ app.post('/api/profiles', async (request, reply) => {
     name: String(body.name).trim(),
     phone_label: body.phone_label || '',
     location: body.location || '',
+    desired_location: body.desired_location || '',
+    share_location: body.share_location || null,
+    entry_photos: body.entry_photos || {},
     price_text: body.price_text || '',
     hours_text: body.hours_text || '',
+    avatar_url: body.avatar_url || null,
+    quick_replies: [],
     bot_enabled: body.bot_enabled !== false,
-    system_prompt: body.system_prompt || undefined,
-    qualification_prompt: body.qualification_prompt || undefined,
-    hot_threshold: Number(body.hot_threshold ?? 0.8),
-    response_style: body.response_style || 'kurz',
-    max_ai_turns: Number(body.max_ai_turns ?? 8),
-    handoff_behavior: body.handoff_behavior || 'stop',
-    voice_mode: body.voice_mode || 'off',
-    llm_model_override: body.llm_model_override || null,
-    temperature: Number(body.temperature ?? 0.35),
-    voice_name: body.voice_name || 'alloy',
+    system_prompt: 'central-policy',
+    qualification_prompt: 'central-policy',
+    hot_threshold: GLOBAL_HOT_THRESHOLD,
+    response_style: 'zentral',
+    max_ai_turns: GLOBAL_MAX_AI_TURNS,
+    handoff_behavior: 'stop',
+    voice_mode: 'off',
+    llm_model_override: null,
+    temperature: 0.35,
+    voice_name: 'alloy',
     media: Array.isArray(body.media) ? body.media : [],
     preset_name: body.preset_name || null,
   };
@@ -306,10 +343,20 @@ app.post('/api/profiles', async (request, reply) => {
   return reply.code(201).send((await gateway<{ data: Profile }>('create_profile', { data })).data);
 });
 
-app.patch('/api/profiles/:id', async (request) => {
+app.patch('/api/profiles/:id', async (request, reply) => {
   const id = (request.params as any).id;
   const body: any = request.body || {};
-  return (await gateway<{ data: Profile }>('update_profile', { data: { id, ...body } })).data;
+  const allowed = new Set([
+    'name', 'phone_label', 'location', 'desired_location', 'share_location', 'entry_photos', 'price_text', 'hours_text', 'avatar_url',
+    'bot_enabled',
+    'preset_name', 'media',
+  ]);
+  const unknown = Object.keys(body).filter((key) => !allowed.has(key));
+  if (unknown.length) return reply.code(400).send({ error: 'Unbekannte Profilfelder: ' + unknown.join(', ') });
+  if ('name' in body && !String(body.name || '').trim()) return reply.code(400).send({ error: 'Name fehlt' });
+  const data: Record<string, unknown> = { id };
+  for (const key of allowed) if (key in body) data[key] = body[key];
+  return (await gateway<{ data: Profile }>('update_profile', { data })).data;
 });
 
 app.post('/api/profiles/:id/clone', async (request) => {
@@ -342,15 +389,32 @@ app.post('/api/profiles/:id/unlink', async (request) => {
 
 app.get('/api/conversations/:id/messages', async (request) => ({ data: await messages((request.params as any).id) }));
 
-app.post('/api/conversations/:id/takeover', async (request) => {
-  return updateConversation((request.params as any).id, { state: 'HUMAN_ACTIVE', unread_count: 0 });
+app.post('/api/conversations/:id/takeover', async (request, reply) => {
+  const id = (request.params as any).id;
+  const current = (await conversations()).find((x) => x.id === id);
+  if (!current) return reply.code(404).send({ error: 'Chat nicht gefunden' });
+  const updated = await updateConversation(id, { state: 'HUMAN_ACTIVE', unread_count: 0 });
+  await gateway('add_event', { data: { profile_id: current.profile_id, conversation_id: id, type: 'HUMAN_TAKEOVER', payload: {} } });
+  return updated;
 });
 
-app.post('/api/conversations/:id/return-ai', async (request) => {
-  return updateConversation((request.params as any).id, { state: 'AI_ACTIVE', unread_count: 0, hot_reason: null, hot_score: null });
+app.post('/api/conversations/:id/return-ai', async (request, reply) => {
+  const id = (request.params as any).id;
+  const current = (await conversations()).find((x) => x.id === id);
+  if (!current) return reply.code(404).send({ error: 'Chat nicht gefunden' });
+  const updated = await updateConversation(id, { state: 'AI_ACTIVE', unread_count: 0, hot_reason: null, hot_score: null });
+  await gateway('add_event', { data: { profile_id: current.profile_id, conversation_id: id, type: 'RETURN_TO_AI', payload: {} } });
+  return updated;
 });
 
-app.post('/api/conversations/:id/close', async (request) => updateConversation((request.params as any).id, { state: 'CLOSED', unread_count: 0 }));
+app.post('/api/conversations/:id/close', async (request, reply) => {
+  const id = (request.params as any).id;
+  const current = (await conversations()).find((x) => x.id === id);
+  if (!current) return reply.code(404).send({ error: 'Chat nicht gefunden' });
+  const updated = await updateConversation(id, { state: 'CLOSED', unread_count: 0 });
+  await gateway('add_event', { data: { profile_id: current.profile_id, conversation_id: id, type: 'CLOSED', payload: {} } });
+  return updated;
+});
 
 app.post('/api/conversations/:id/send', async (request, reply) => {
   const id = (request.params as any).id;
@@ -359,15 +423,15 @@ app.post('/api/conversations/:id/send', async (request, reply) => {
   if (!text) return reply.code(400).send({ error: 'Nachricht leer' });
   const c = (await conversations()).find((x) => x.id === id);
   if (!c) return reply.code(404).send({ error: 'Chat nicht gefunden' });
-  const profile = await getProfile(c.profile_id);
+  if (c.state !== 'HUMAN_ACTIVE') return reply.code(409).send({ error: 'Chat muss zuerst übernommen werden' });
   const currentSettings = await settings();
-  const wantsVoice = Boolean(body.voice) || (Boolean(currentSettings.voice_enabled) && profile.voice_mode !== 'off');
+  const wantsVoice = Boolean(body.voice);
   let sentId: string | null;
   let outgoingKind: 'text' | 'voice' = 'text';
   if (wantsVoice) {
     try {
-      const audio = await synthesizeVoice(currentSettings as LlmSettings, text, profile.voice_name || 'alloy');
-      sentId = await sendVoiceAudio(c.profile_id, c.wa_jid, audio);
+      const audio = await synthesizeVoice(currentSettings as LlmSettings, text, 'alloy');
+      sentId = await sendVoiceAudio(c.profile_id, c.wa_jid, audio.buffer, audio.mime);
       outgoingKind = 'voice';
     } catch (voiceError) {
       app.log.warn({ err: voiceError }, 'Human TTS failed, falling back to text');
@@ -379,6 +443,136 @@ app.post('/api/conversations/:id/send', async (request, reply) => {
   await addMessage({ conversation_id: id, wa_message_id: sentId, direction: 'out', sender: 'human', kind: outgoingKind, text });
   await updateConversation(id, { state: 'HUMAN_ACTIVE', unread_count: 0, last_message_preview: outgoingKind === 'voice' ? `🎙 ${text.slice(0, 160)}` : text.slice(0, 180), last_message_at: new Date().toISOString() });
   return { ok: true, kind: outgoingKind };
+});
+
+app.post('/api/test/qualify', async (request, reply) => {
+  const body: any = request.body || {};
+  const profileId = String(body.profile_id || '').trim();
+  const text = String(body.text || '').trim();
+  if (!profileId || !text) return reply.code(400).send({ error: 'Profil und Testnachricht fehlen' });
+  if (text.length > 4000) return reply.code(400).send({ error: 'Testnachricht ist zu lang' });
+  const profile = await getProfile(profileId);
+  const now = new Date().toISOString();
+  const testConversation = {
+    id: 'playground', profile_id: profile.id, wa_jid: 'playground@s.whatsapp.net', contact_name: 'Test Lead',
+    state: 'AI_ACTIVE', hot_score: null, hot_reason: null, ai_turns: 0, unread_count: 0,
+    last_message_preview: text.slice(0, 180), last_message_at: now,
+  } as unknown as Conversation;
+  const testMessages = [{
+    id: 'playground-message', conversation_id: 'playground', direction: 'in', sender: 'lead', kind: 'text', text, created_at: now,
+  }] as unknown as StoredMessage[];
+  try {
+    const result = await qualifyLead(await settings() as LlmSettings, profile, testConversation, testMessages);
+    return { ok: true, ...result };
+  } catch (error) {
+    app.log.warn({ err: error }, 'Playground qualification failed');
+    return reply.code(502).send({ error: error instanceof Error ? error.message.slice(0, 300) : 'KI-Test fehlgeschlagen' });
+  }
+});
+
+app.post('/api/conversations/:id/send-entry-photo', async (request, reply) => {
+  const id = (request.params as any).id;
+  const body: any = request.body || {};
+  const type = String(body.type || '');
+  if (!['door', 'bell'].includes(type)) return reply.code(400).send({ error: 'Ungültiger Fototyp' });
+  const c = (await conversations()).find((x) => x.id === id);
+  if (!c) return reply.code(404).send({ error: 'Chat nicht gefunden' });
+  if (c.state !== 'HUMAN_ACTIVE') return reply.code(409).send({ error: 'Chat muss zuerst übernommen werden' });
+  const profile = await getProfile(c.profile_id);
+  const photos: any = profile.entry_photos || {};
+  const url = String(type === 'door' ? photos.door_url || '' : photos.bell_url || '').trim();
+  if (!/^https:\/\//i.test(url)) return reply.code(400).send({ error: type === 'door' ? 'Kein gültiges Haustürfoto hinterlegt' : 'Kein gültiges Klingelfoto hinterlegt' });
+  const label = type === 'door' ? 'Haustür' : 'Klingel';
+  const sentId = await sendImageUrl(c.profile_id, c.wa_jid, url, label);
+  await addMessage({ conversation_id: id, wa_message_id: sentId, direction: 'out', sender: 'human', kind: 'image', media_url: url, text: label });
+  await updateConversation(id, { state: 'HUMAN_ACTIVE', unread_count: 0, last_message_preview: `🖼 ${label}`, last_message_at: new Date().toISOString() });
+  return { ok: true, kind: 'image', type };
+});
+
+app.post('/api/conversations/:id/send-location', async (request, reply) => {
+  const id = (request.params as any).id;
+  const c = (await conversations()).find((x) => x.id === id);
+  if (!c) return reply.code(404).send({ error: 'Chat nicht gefunden' });
+  if (c.state !== 'HUMAN_ACTIVE') return reply.code(409).send({ error: 'Chat muss zuerst übernommen werden' });
+  const profile = await getProfile(c.profile_id);
+  const loc: any = profile.share_location;
+  const latitude = Number(loc?.latitude);
+  const longitude = Number(loc?.longitude);
+  const address = String(loc?.address || '').trim();
+  const label = String(loc?.label || profile.name || address).trim();
+  if (!address || !Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+    return reply.code(400).send({ error: 'Für dieses Profil ist keine gültige Wahladresse mit Koordinaten hinterlegt' });
+  }
+  const sentId = await sendLocation(c.profile_id, c.wa_jid, latitude, longitude, label, address);
+  await addMessage({ conversation_id: id, wa_message_id: sentId, direction: 'out', sender: 'human', kind: 'location', text: `📍 ${label}${label !== address ? ` · ${address}` : ''}` });
+  await updateConversation(id, { state: 'HUMAN_ACTIVE', unread_count: 0, last_message_preview: `📍 ${address}`.slice(0, 180), last_message_at: new Date().toISOString() });
+  return { ok: true, kind: 'location' };
+});
+
+app.post('/api/conversations/:id/send-media', async (request, reply) => {
+  const id = (request.params as any).id;
+  const body: any = request.body || {};
+  const url = String(body.url || '').trim();
+  if (!/^https:\/\//i.test(url)) return reply.code(400).send({ error: 'Nur HTTPS-Bilder sind erlaubt' });
+  const c = (await conversations()).find((x) => x.id === id);
+  if (!c) return reply.code(404).send({ error: 'Chat nicht gefunden' });
+  if (c.state !== 'HUMAN_ACTIVE') return reply.code(409).send({ error: 'Chat muss zuerst übernommen werden' });
+  const profile = await getProfile(c.profile_id);
+  const allowed = Array.isArray(profile.media) ? profile.media.filter((x): x is string => typeof x === 'string') : [];
+  if (!allowed.includes(url)) return reply.code(403).send({ error: 'Bild gehört nicht zur Medienliste dieses Profils' });
+  const sentId = await sendImageUrl(c.profile_id, c.wa_jid, url);
+  await addMessage({ conversation_id: id, wa_message_id: sentId, direction: 'out', sender: 'human', kind: 'image', media_url: url, text: '' });
+  await updateConversation(id, { state: 'HUMAN_ACTIVE', unread_count: 0, last_message_preview: '🖼 Bild', last_message_at: new Date().toISOString() });
+  return { ok: true, kind: 'image' };
+});
+
+app.post('/api/conversations/:id/send-tts', async (request, reply) => {
+  const id = (request.params as any).id;
+  const body: any = request.body || {};
+  const text = String(body.text || '').trim();
+  if (!text) return reply.code(400).send({ error: 'Text fehlt' });
+  if (text.length > 1200) return reply.code(400).send({ error: 'Text ist zu lang (maximal 1200 Zeichen)' });
+  const c = (await conversations()).find((x) => x.id === id);
+  if (!c) return reply.code(404).send({ error: 'Chat nicht gefunden' });
+  if (c.state !== 'HUMAN_ACTIVE') return reply.code(409).send({ error: 'Chat muss zuerst übernommen werden' });
+  const currentSettings = await settings();
+  if (!currentSettings.voice_enabled) return reply.code(409).send({ error: 'Text-zu-Sprache ist in den Einstellungen deaktiviert' });
+  try {
+    const audio = await synthesizeVoice(currentSettings as LlmSettings, text, 'alloy');
+    const sentId = await sendVoiceAudio(c.profile_id, c.wa_jid, audio.buffer, audio.mime);
+    await addMessage({ conversation_id: id, wa_message_id: sentId, direction: 'out', sender: 'human', kind: 'voice', text });
+    await updateConversation(id, { state: 'HUMAN_ACTIVE', unread_count: 0, last_message_preview: ('🎙 ' + text).slice(0, 180), last_message_at: new Date().toISOString() });
+    return { ok: true, kind: 'voice' };
+  } catch (error) {
+    app.log.warn({ err: error }, 'Manual TTS send failed');
+    return reply.code(502).send({ error: error instanceof Error ? error.message.slice(0, 300) : 'Sprachausgabe fehlgeschlagen' });
+  }
+});
+
+app.post('/api/conversations/:id/send-voice-upload', { bodyLimit: 6 * 1024 * 1024 }, async (request, reply) => {
+  const id = (request.params as any).id;
+  const body: any = request.body || {};
+  const mimeRaw = String(body.mime || '').trim().toLowerCase();
+  const mime = mimeRaw.split(';')[0];
+  const allowedMime = new Set(['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg']);
+  if (!allowedMime.has(mime)) return reply.code(400).send({ error: 'Nicht unterstütztes Audioformat' });
+  const encoded = String(body.audio_base64 || '').trim();
+  if (!encoded || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) return reply.code(400).send({ error: 'Ungültige Audiodaten' });
+  const audio = Buffer.from(encoded, 'base64');
+  if (!audio.length) return reply.code(400).send({ error: 'Audiodatei ist leer' });
+  if (audio.length > 4 * 1024 * 1024) return reply.code(413).send({ error: 'Sprachnachricht ist zu groß (maximal 4 MB)' });
+  const c = (await conversations()).find((x) => x.id === id);
+  if (!c) return reply.code(404).send({ error: 'Chat nicht gefunden' });
+  if (c.state !== 'HUMAN_ACTIVE') return reply.code(409).send({ error: 'Chat muss zuerst übernommen werden' });
+  try {
+    const sentId = await sendVoiceAudio(c.profile_id, c.wa_jid, audio, mime);
+    await addMessage({ conversation_id: id, wa_message_id: sentId, direction: 'out', sender: 'human', kind: 'voice', text: 'Sprachnachricht' });
+    await updateConversation(id, { state: 'HUMAN_ACTIVE', unread_count: 0, last_message_preview: '🎙 Sprachnachricht', last_message_at: new Date().toISOString() });
+    return { ok: true, kind: 'voice' };
+  } catch (error) {
+    app.log.warn({ err: error }, 'Recorded voice send failed');
+    return reply.code(502).send({ error: error instanceof Error ? error.message.slice(0, 300) : 'Sprachnachricht konnte nicht gesendet werden' });
+  }
 });
 
 app.post('/api/demo/hot', async () => {

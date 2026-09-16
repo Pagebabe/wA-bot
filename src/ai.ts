@@ -1,4 +1,5 @@
 import type { Conversation, Profile, StoredMessage } from './store.js';
+import { buildSystemPrompt } from './chat-policy.js';
 
 export type LlmSettings = {
   llm_base_url?: string | null;
@@ -6,6 +7,12 @@ export type LlmSettings = {
   llm_api_key_encrypted?: string | null;
   voice_enabled?: boolean | null;
   voice_model?: string | null;
+  tts_api_key?: string | null;
+  tts_voice_id?: string | null;
+  tts_model?: string | null;
+  stt_api_key?: string | null;
+  stt_base_url?: string | null;
+  stt_model?: string | null;
 };
 
 export type Qualification = {
@@ -66,31 +73,19 @@ export async function qualifyLead(
   messages: StoredMessage[],
 ): Promise<Qualification> {
   const apiKey = settings.llm_api_key_encrypted;
-  const model = profile.llm_model_override || settings.llm_model;
+  const model = settings.llm_model;
   const base = settings.llm_base_url;
   if (!apiKey || !model || !base) throw new Error('LLM is not configured');
 
   const transcript = messages.slice(-18).map((m) => `${m.sender}: ${m.text || `[${m.kind}]`}`).join('\n');
-  const system = [
-    profile.system_prompt,
-    `Profil: ${profile.name}`,
-    profile.location ? `Ort: ${profile.location}` : '',
-    profile.price_text ? `Preise: ${profile.price_text}` : '',
-    profile.hours_text ? `Zeiten: ${profile.hours_text}` : '',
-    `Qualifizierungsregel: ${profile.qualification_prompt}`,
-    `HOT-Schwelle: ${profile.hot_threshold}`,
-    `Antwortstil: ${profile.response_style}. Antworte knapp und menschlich, keine langen Texte.`,
-    'Du darfst keinen Termin verbindlich buchen. Sobald der Lead HOT ist, wird an einen Menschen übergeben.',
-    'Gib ausschließlich JSON zurück: {"reply":"...","hot":true|false,"score":0.0,"reason":"..."}.',
-    'Wenn hot=true, darf reply leer sein. score muss zwischen 0 und 1 liegen.',
-  ].filter(Boolean).join('\n');
+  const system = buildSystemPrompt(profile);
 
   const response = await fetchLlm(`${normalizeBaseUrl(base)}/chat/completions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model,
-      temperature: Number(profile.temperature ?? 0.35),
+      temperature: 0.35,
       max_tokens: 220,
       messages: [
         { role: 'system', content: system },
@@ -106,13 +101,34 @@ export async function qualifyLead(
   const score = Math.max(0, Math.min(1, Number(parsed.score ?? 0)));
   return {
     reply: typeof parsed.reply === 'string' ? parsed.reply.trim() : '',
-    hot: Boolean(parsed.hot) || score >= Number(profile.hot_threshold || 0.8),
+    hot: Boolean(parsed.hot) || score >= 0.8,
     score,
     reason: typeof parsed.reason === 'string' ? parsed.reason.slice(0, 500) : '',
   };
 }
 
-export async function synthesizeVoice(settings: LlmSettings, text: string, voice = 'alloy'): Promise<Buffer> {
+export type SynthesizedVoice = { buffer: Buffer; mime: string; format: string };
+
+export async function synthesizeVoice(settings: LlmSettings, text: string, voice = 'alloy'): Promise<SynthesizedVoice> {
+  const input = String(text || '').trim();
+  if (!input || input.length > 1200) throw new Error('Voice text is invalid');
+  const elevenKey = settings.tts_api_key || process.env.ELEVENLABS_API_KEY;
+  const elevenVoice = settings.tts_voice_id || process.env.ELEVENLABS_VOICE_ID;
+  if (elevenKey && elevenVoice) {
+    const model = settings.tts_model || process.env.ELEVENLABS_MODEL_ID || 'eleven_flash_v2_5';
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(elevenVoice)}?output_format=opus_48000_64`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'xi-api-key': elevenKey },
+      body: JSON.stringify({
+        text: input,
+        model_id: model,
+        voice_settings: { stability: 0.45, similarity_boost: 0.78, style: 0, use_speaker_boost: true },
+      }),
+    });
+    if (!response.ok) throw new Error(`TTS HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
+    return { buffer: Buffer.from(await response.arrayBuffer()), mime: 'audio/ogg; codecs=opus', format: 'opus_48000_64' };
+  }
+
   const apiKey = settings.llm_api_key_encrypted;
   const base = settings.llm_base_url;
   if (!apiKey || !base) throw new Error('Voice API is not configured');
@@ -120,18 +136,18 @@ export async function synthesizeVoice(settings: LlmSettings, text: string, voice
   const response = await fetchLlm(`${normalizeBaseUrl(base)}/audio/speech`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, voice, input: text, format: 'mp3' }),
+    body: JSON.stringify({ model, voice, input, response_format: 'opus' }),
   });
   if (!response.ok) throw new Error(`TTS HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
-  return Buffer.from(await response.arrayBuffer());
+  return { buffer: Buffer.from(await response.arrayBuffer()), mime: 'audio/ogg; codecs=opus', format: 'opus' };
 }
 
 export async function transcribeAudio(settings: LlmSettings, audio: Buffer, mime = 'audio/ogg'): Promise<string> {
-  const apiKey = settings.llm_api_key_encrypted;
-  const base = settings.llm_base_url;
+  const apiKey = settings.stt_api_key || process.env.OPENAI_API_KEY || settings.llm_api_key_encrypted;
+  const base = settings.stt_base_url || process.env.STT_BASE_URL || settings.llm_base_url;
   if (!apiKey || !base) throw new Error('Transcription API is not configured');
   const form = new FormData();
-  form.append('model', 'gpt-4o-mini-transcribe');
+  form.append('model', settings.stt_model || process.env.STT_MODEL || 'gpt-4o-mini-transcribe');
   const copy = Uint8Array.from(audio);
   form.append('file', new Blob([copy.buffer as ArrayBuffer], { type: mime }), 'voice.ogg');
   const response = await fetchLlm(`${normalizeBaseUrl(base)}/audio/transcriptions`, {

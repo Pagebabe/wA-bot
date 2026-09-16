@@ -10,6 +10,7 @@ import { Boom } from '@hapi/boom';
 import P from 'pino';
 import QRCode from 'qrcode';
 import { gateway, type Profile } from './store.js';
+import { inboundAudio, inboundText } from './whatsapp-message.js';
 
 const logger = P({ level: process.env.NODE_ENV === 'production' ? 'warn' : 'info' });
 
@@ -17,6 +18,7 @@ type Session = {
   socket: any;
   qrDataUrl: string | null;
   status: 'offline' | 'connecting' | 'online' | 'error';
+  account: { id: string; number: string | null; name: string | null } | null;
   reconnecting: boolean;
 };
 
@@ -25,6 +27,15 @@ type InboundKind = 'text' | 'voice';
 const sessions = new Map<string, Session>();
 let inboundHandler: ((profileId: string, jid: string, name: string | null, text: string, waMessageId: string | null, raw: unknown, kind: InboundKind) => Promise<void>) | null = null;
 let voiceTranscriber: ((audio: Buffer, mime: string) => Promise<string>) | null = null;
+
+function accountFromUser(user: any) {
+  const id = typeof user?.id === 'string' ? user.id.trim() : '';
+  if (!id) return null;
+  const bare = id.split('@')[0].split(':')[0];
+  const digits = bare.replace(/\D/g, '');
+  const name = typeof user?.name === 'string' && user.name.trim() ? user.name.trim() : null;
+  return { id, number: digits ? `+${digits}` : null, name };
+}
 
 export function setInboundHandler(handler: typeof inboundHandler) {
   inboundHandler = handler;
@@ -40,8 +51,19 @@ async function authRead(profileId: string, keys: string[]): Promise<Map<string, 
   return new Map((res.data || []).map((x) => [x.key, x.value]));
 }
 
+const authWriteQueues = new Map<string, Promise<void>>();
+
 async function authWrite(profileId: string, items: Array<{ key: string; value: string | null }>) {
-  await gateway('auth_set', { profile_id: profileId, items });
+  const previous = authWriteQueues.get(profileId) || Promise.resolve();
+  const current = previous.catch(() => undefined).then(async () => {
+    await gateway('auth_set', { profile_id: profileId, items });
+  });
+  authWriteQueues.set(profileId, current);
+  try {
+    await current;
+  } finally {
+    if (authWriteQueues.get(profileId) === current) authWriteQueues.delete(profileId);
+  }
 }
 
 async function buildAuthState(profileId: string) {
@@ -88,14 +110,7 @@ async function setProfileStatus(profileId: string, status: Session['status']) {
 }
 
 function extractText(message: any): string | null {
-  if (!message) return null;
-  return message.conversation
-    || message.extendedTextMessage?.text
-    || message.imageMessage?.caption
-    || message.videoMessage?.caption
-    || message.buttonsResponseMessage?.selectedDisplayText
-    || message.listResponseMessage?.title
-    || null;
+  return inboundText(message);
 }
 
 export async function connectWhatsApp(profile: Profile): Promise<void> {
@@ -103,7 +118,7 @@ export async function connectWhatsApp(profile: Profile): Promise<void> {
   if (existing?.status === 'online' || existing?.status === 'connecting') return;
 
   const { state, saveCreds } = await buildAuthState(profile.id);
-  const session: Session = { socket: null, qrDataUrl: null, status: 'connecting', reconnecting: false };
+  const session: Session = { socket: null, qrDataUrl: null, status: 'connecting', account: accountFromUser(state.creds?.me), reconnecting: false };
   sessions.set(profile.id, session);
   await setProfileStatus(profile.id, 'connecting');
 
@@ -126,13 +141,15 @@ export async function connectWhatsApp(profile: Profile): Promise<void> {
     if (update.connection === 'open') {
       session.qrDataUrl = null;
       session.status = 'online';
+      session.account = accountFromUser(socket.user) || accountFromUser(state.creds?.me) || session.account;
       session.reconnecting = false;
       await setProfileStatus(profile.id, 'online');
     }
     if (update.connection === 'close') {
       const code = (update.lastDisconnect?.error as Boom | undefined)?.output?.statusCode;
       const loggedOut = code === DisconnectReason.loggedOut;
-      session.status = loggedOut ? 'offline' : 'error';
+      const restartRequired = code === DisconnectReason.restartRequired;
+      session.status = loggedOut ? 'offline' : restartRequired ? 'connecting' : 'error';
       await setProfileStatus(profile.id, session.status);
       if (loggedOut) {
         await gateway('auth_clear', { profile_id: profile.id }).catch(() => undefined);
@@ -144,7 +161,7 @@ export async function connectWhatsApp(profile: Profile): Promise<void> {
         setTimeout(() => {
           sessions.delete(profile.id);
           connectWhatsApp(profile).catch(async () => setProfileStatus(profile.id, 'error'));
-        }, 2500);
+        }, restartRequired ? 250 : 2500);
       }
     }
   });
@@ -157,11 +174,12 @@ export async function connectWhatsApp(profile: Profile): Promise<void> {
       if (jid === 'status@broadcast' || jid.endsWith('@g.us')) continue;
       let text = extractText(msg.message);
       let kind: InboundKind = 'text';
-      if (!text && msg.message?.audioMessage && voiceTranscriber) {
+      const audioMessage = inboundAudio(msg.message);
+      if (!text && audioMessage && voiceTranscriber) {
         try {
           const media = await (downloadMediaMessage as any)(msg, 'buffer', {}, { logger, reuploadRequest: socket.updateMediaMessage });
           const buffer = Buffer.isBuffer(media) ? media : Buffer.from(media);
-          text = await voiceTranscriber(buffer, msg.message.audioMessage.mimetype || 'audio/ogg');
+          text = await voiceTranscriber(buffer, audioMessage.mimetype || 'audio/ogg');
           kind = 'voice';
         } catch (error) {
           logger.error(error);
@@ -175,7 +193,7 @@ export async function connectWhatsApp(profile: Profile): Promise<void> {
 
 export function getConnection(profileId: string) {
   const session = sessions.get(profileId);
-  return session ? { status: session.status, qr: session.qrDataUrl } : { status: 'offline', qr: null };
+  return session ? { status: session.status, qr: session.qrDataUrl, account: session.account } : { status: 'offline', qr: null, account: null };
 }
 
 export async function sendText(profileId: string, jid: string, text: string) {
@@ -194,10 +212,19 @@ export async function sendImageUrl(profileId: string, jid: string, imageUrl: str
   return sent?.key?.id || null;
 }
 
-export async function sendVoiceAudio(profileId: string, jid: string, audio: Buffer) {
+export async function sendLocation(profileId: string, jid: string, latitude: number, longitude: number, label: string, address: string) {
   const session = sessions.get(profileId);
   if (!session?.socket || session.status !== 'online') throw new Error('WhatsApp profile is not online');
-  const sent = await session.socket.sendMessage(jid, { audio, mimetype: 'audio/mpeg', ptt: true });
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) throw new Error('Invalid latitude');
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) throw new Error('Invalid longitude');
+  const sent = await session.socket.sendMessage(jid, { location: { degreesLatitude: latitude, degreesLongitude: longitude, name: label.trim() || address.trim(), address: address.trim() } });
+  return sent?.key?.id || null;
+}
+
+export async function sendVoiceAudio(profileId: string, jid: string, audio: Buffer, mime = 'audio/mpeg') {
+  const session = sessions.get(profileId);
+  if (!session?.socket || session.status !== 'online') throw new Error('WhatsApp profile is not online');
+  const sent = await session.socket.sendMessage(jid, { audio, mimetype: mime, ptt: true });
   return sent?.key?.id || null;
 }
 

@@ -6,6 +6,7 @@ const html = readFileSync('public/index.html', 'utf8');
 const server = readFileSync('src/server.ts', 'utf8');
 const store = readFileSync('src/store.ts', 'utf8');
 const ai = readFileSync('src/ai.ts', 'utf8');
+const policy = readFileSync('src/chat-policy.ts', 'utf8');
 const wa = readFileSync('src/whatsapp.ts', 'utf8');
 
 test('profile contains identity, desired location and per-profile assets', () => {
@@ -18,13 +19,14 @@ test('profile contains identity, desired location and per-profile assets', () =>
 });
 
 test('profile values round-trip through UI and API model', () => {
-  assert.match(html, /desired_location:\$\('pDesiredLocation'\)\.value\.trim\(\)/);
-  assert.match(html, /quick_replies:\$\('pQuick'\)/);
-  assert.match(html, /avatar_url:\$\('pAvatar'\)/);
+  assert.match(html, /desired_location:\s*\$\("pDesiredLocation"\)\.value\.trim\(\)/);
+  assert.match(html, /state\.savedReplies\.join\("\\n"\)/);
+  assert.match(html, /avatar_url:\s*\$\("pAvatar"\)/);
   assert.match(server, /'desired_location'/);
   assert.match(server, /desired_location: body\.desired_location/);
   assert.match(store, /desired_location\?: string \| null/);
-  assert.match(ai, /Wunschstandort \/ Einsatzgebiet/);
+  assert.match(ai, /buildSystemPrompt\(profile\)/);
+  assert.doesNotMatch(policy, /profile\.(location|desired_location|price_text|hours_text|hot_threshold)/);
 });
 
 test('per-profile quick replies and image sending are shipped and ownership-gated', () => {
@@ -39,6 +41,6 @@ test('per-profile quick replies and image sending are shipped and ownership-gate
 });
 
 test('image messages render as images in chat', () => {
-  assert.match(html, /m\.kind==='image'&&m\.media_url/);
+  assert.match(html, /m\.kind === "image" && m\.media_url/);
   assert.match(html, /Gesendetes Bild/);
 });

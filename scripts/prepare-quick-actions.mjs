@@ -50,7 +50,7 @@ server = replaceOnce(
     const audio = await synthesizeVoice(currentSettings as LlmSettings, text, profile.voice_name || 'alloy');
     const sentId = await sendVoiceAudio(c.profile_id, c.wa_jid, audio, 'audio/mpeg');
     await addMessage({ conversation_id: id, wa_message_id: sentId, direction: 'out', sender: 'human', kind: 'voice', text });
-    await updateConversation(id, { state: 'HUMAN_ACTIVE', unread_count: 0, last_message_preview: `🎙 \${text}`.slice(0, 180), last_message_at: new Date().toISOString() });
+    await updateConversation(id, { state: 'HUMAN_ACTIVE', unread_count: 0, last_message_preview: ('🎙 ' + text).slice(0, 180), last_message_at: new Date().toISOString() });
     return { ok: true, kind: 'voice' };
   } catch (error) {
     app.log.warn({ err: error }, 'Manual TTS send failed');
@@ -122,7 +122,7 @@ html = replaceOnce(
     </nav>
     <section class="toolPanel active" data-tool-panel="replies">
       <label class="toolSearch">⌕<input id="toolReplySearch" placeholder="Antwort suchen …" oninput="renderToolReplies()"></label>
-      <div class="toolHint">Klick fügt die Vorlage nur in den Entwurf ein. {{name}}, {{profil}}, {{ort}} und {{preis}} werden ersetzt.</div>
+      <div class="toolHint">Klick fügt die Vorlage nur in den Entwurf ein. {{name}} wird durch den Kontaktnamen ersetzt.</div>
       <div id="toolReplies" class="toolList"></div>
     </section>
     <section class="toolPanel" data-tool-panel="photos"><div class="toolHint">Profilbilder sowie Haustür/Klingel. Vor dem echten Versand wird bestätigt.</div><div id="toolPhotos" class="toolPhotoGrid"></div></section>
@@ -149,7 +149,7 @@ const QUICK_AUDIO_MAX_BYTES=4*1024*1024;
 
 function quickChatProfile(){const c=state.currentChat;return c?profileBy(c.profile_id):null}
 function quickCanSend(){return Boolean(state.currentChat&&state.currentChat.state==='HUMAN_ACTIVE')}
-function expandQuickTemplate(value){const c=state.currentChat,p=quickChatProfile();return String(value||'').replaceAll('{{name}}',c?.contact_name||'').replaceAll('{{profil}}',p?.name||'').replaceAll('{{ort}}',p?.location||p?.desired_location||p?.share_location?.address||'').replaceAll('{{preis}}',p?.price_text||'')}
+function expandQuickTemplate(value){const c=state.currentChat;return String(value||'').replaceAll('{{name}}',c?.contact_name||'')}
 function selectQuickTool(name){activeQuickTool=name;document.querySelectorAll('[data-tool-tab]').forEach(x=>x.classList.toggle('active',x.dataset.toolTab===name));document.querySelectorAll('[data-tool-panel]').forEach(x=>x.classList.toggle('active',x.dataset.toolPanel===name))}
 function toggleQuickToolbox(){$('quickToolbox')?.classList.toggle('open');$('toolBackdrop')?.classList.toggle('open',$('quickToolbox')?.classList.contains('open'))}
 function closeQuickToolbox(){$('quickToolbox')?.classList.remove('open');$('toolBackdrop')?.classList.remove('open')}
@@ -188,10 +188,10 @@ html = replaceOnce(
 );
 html = replaceOnce(
   html,
-  'load();setInterval(()=>{if(!document.hidden)load()},2500);\n</script>',
-  `load();setInterval(()=>{if(!document.hidden)load()},2500);
-${toolboxScript}
-</script>`,
+  '\n</script>\n</body>',
+  `${toolboxScript}
+</script>
+</body>`,
   'toolbox client logic',
 );
 writeFileSync('public/index.html', html);

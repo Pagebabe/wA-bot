@@ -11,13 +11,13 @@ test('right-side quick action toolbox exposes all four operator tools', () => {
   for (const id of ['quickToolbox', 'toolReplies', 'toolPhotos', 'toolLocations', 'toolVoicePresets', 'recordButton', 'toolTtsText']) {
     assert.match(html, new RegExp(`id=["']${id}["']`));
   }
-  for (const tab of ['Antworten', 'Fotos', 'GPS', 'Sprache']) assert.match(html, new RegExp(`>${tab}<`));
+  for (const tab of ['Antworten', 'Fotos', 'GPS', 'Sprache']) assert.match(html, new RegExp(`>\\s*${tab}\\s*<`));
   assert.match(html, /MediaRecorder/);
   assert.match(html, /getUserMedia/);
   assert.match(html, /\{\{name\}\}/);
-  assert.match(html, /\{\{profil\}\}/);
-  assert.match(html, /\{\{ort\}\}/);
-  assert.match(html, /\{\{preis\}\}/);
+  assert.doesNotMatch(html, /\{\{profil\}\}/);
+  assert.doesNotMatch(html, /\{\{ort\}\}/);
+  assert.doesNotMatch(html, /\{\{preis\}\}/);
 });
 
 test('quick action sends stay on real profile-scoped WhatsApp routes', () => {
@@ -43,7 +43,7 @@ test('voice sender preserves validated browser mime for Baileys and keeps Evolut
 });
 
 test('photos and GPS require deliberate confirmation while reply templates only fill the draft', () => {
-  assert.match(html, /confirm\(item\.label\+' wirklich senden\?'\)/);
-  assert.match(html, /confirm\(\(loc\.label\|\|p\.name\|\|'Standort'\)\+' wirklich senden\?'\)/);
-  assert.match(html, /\$\('composer'\)\.value=text/);
+  assert.match(html, /confirm\(item\.label \+ " wirklich senden\?"\)/);
+  assert.match(html, /confirm\(\(loc\.label \|\| p\.name \|\| "Standort"\) \+ " wirklich senden\?"\)/);
+  assert.match(html, /\$\("composer"\)\.value = text/);
 });

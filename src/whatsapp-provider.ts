@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { Profile } from './store.js';
 import * as baileys from './whatsapp.js';
+import { inboundAudio, inboundText } from './whatsapp-message.js';
 
 type InboundKind = 'text' | 'voice';
 type InboundHandler = (
@@ -123,14 +124,7 @@ function qrDataUri(input: any): string | null {
 }
 
 function messageText(message: any): string | null {
-  if (!message) return null;
-  return message.conversation
-    || message.extendedTextMessage?.text
-    || message.imageMessage?.caption
-    || message.videoMessage?.caption
-    || message.buttonsResponseMessage?.selectedDisplayText
-    || message.listResponseMessage?.title
-    || null;
+  return inboundText(message);
 }
 
 function updateEvolutionConnection(profileId: string, patch: Partial<ConnectionState>) {
@@ -301,8 +295,8 @@ export async function sendLocation(profileId: string, jid: string, latitude: num
   return messageId(result);
 }
 
-export async function sendVoiceAudio(profileId: string, jid: string, audio: Buffer) {
-  if (!isEvolution()) return baileys.sendVoiceAudio(profileId, jid, audio);
+export async function sendVoiceAudio(profileId: string, jid: string, audio: Buffer, mime = 'audio/mpeg') {
+  if (!isEvolution()) return baileys.sendVoiceAudio(profileId, jid, audio, mime);
   const result = (await evolutionRequest(`/message/sendWhatsAppAudio/${encodeURIComponent(instanceName(profileId))}`, {
     method: 'POST',
     body: JSON.stringify({ number: normalizeNumber(jid), audio: audio.toString('base64') }),
@@ -368,12 +362,13 @@ export async function handleEvolutionWebhook(payload: any) {
 
   let text = messageText(data.message);
   let kind: InboundKind = 'text';
-  if (!text && data?.message?.audioMessage && voiceTranscriber) {
+  const audioMessage = inboundAudio(data?.message);
+  if (!text && audioMessage && voiceTranscriber) {
     const rawBase64 = data?.base64 || data?.message?.base64 || payload?.base64;
     if (typeof rawBase64 === 'string' && rawBase64.trim()) {
       try {
         const clean = rawBase64.includes(',') ? rawBase64.slice(rawBase64.indexOf(',') + 1) : rawBase64;
-        text = await voiceTranscriber(Buffer.from(clean, 'base64'), data.message.audioMessage.mimetype || 'audio/ogg');
+        text = await voiceTranscriber(Buffer.from(clean, 'base64'), audioMessage.mimetype || 'audio/ogg');
         kind = 'voice';
       } catch {
         text = null;

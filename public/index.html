@@ -1,109 +1,3426 @@
 <!doctype html>
 <html lang="de">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<meta name="theme-color" content="#101a20" />
-<title>wA-bot</title>
-<style>
-:root{--bg:#0b141a;--rail:#111b21;--panel:#111b21;--panel2:#202c33;--panel3:#182229;--line:#25343c;--text:#e9edef;--muted:#8696a0;--green:#00a884;--green2:#25d366;--hot:#ef5965;--amber:#f4b942;--blue:#53bdeb;--shadow:0 16px 50px rgba(0,0,0,.34)}*{box-sizing:border-box}html,body{height:100%;margin:0}body{background:var(--bg);color:var(--text);font:14px/1.4 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden}button,input,textarea,select{font:inherit}button{cursor:pointer;color:inherit}.shell{display:grid;grid-template-columns:58px 390px minmax(0,1fr);height:100vh}.rail{background:#202c33;border-right:1px solid #1d2a30;display:flex;flex-direction:column;align-items:center;padding:10px 6px;gap:8px}.railLogo{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--green);color:#04231c;font-weight:900;margin-bottom:6px}.railBtn{position:relative;width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:#aebac1;font-size:20px}.railBtn:hover,.railBtn.active{background:#2a3942;color:white}.railBadge{position:absolute;right:1px;top:1px;min-width:17px;height:17px;border-radius:99px;padding:0 4px;background:var(--green);color:#04231c;font-size:10px;font-weight:900;display:none;place-items:center}.railBadge.show{display:grid}.railSpacer{flex:1}.listPane{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-width:0}.listTop{height:60px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between}.listTop h1{font-size:21px;margin:0}.topActions{display:flex;gap:6px}.icon{border:0;background:transparent;width:38px;height:38px;border-radius:50%;font-size:18px;color:#aebac1}.icon:hover{background:#202c33;color:white}.profileChooser{margin:0 12px 8px;display:flex;align-items:center;gap:9px;background:#202c33;border-radius:9px;padding:8px 10px}.profileChooser select{flex:1;border:0;outline:0;background:transparent;color:var(--text);min-width:0}.profileChooser select option{background:#202c33}.connDot{width:9px;height:9px;border-radius:50%;background:#667781}.connDot.online{background:var(--green2)}.connDot.connecting{background:var(--amber)}.searchBox{margin:0 12px 8px;background:#202c33;border-radius:9px;display:flex;align-items:center;padding:0 10px;color:var(--muted)}.searchBox input{width:100%;height:36px;border:0;outline:0;background:transparent;color:var(--text);padding-left:8px}.filters{padding:0 12px 8px;display:flex;gap:7px;overflow:auto}.chip{white-space:nowrap;border:0;border-radius:999px;background:#202c33;color:#aebac1;padding:7px 12px;font-size:12px}.chip.active{background:#0a332c;color:#d9fdd3}.chatList{min-height:0;overflow:auto;flex:1}.chatRow{display:grid;grid-template-columns:50px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 13px;border:0;background:transparent;width:100%;text-align:left;position:relative}.chatRow:after{content:"";position:absolute;left:73px;right:0;bottom:0;border-bottom:1px solid #202c33}.chatRow:hover,.chatRow.active{background:#202c33}.avatar{width:49px;height:49px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#53646d,#263740);font-weight:800;color:white;overflow:hidden}.rowMain{min-width:0}.rowTop{display:flex;justify-content:space-between;gap:8px;align-items:center}.rowName{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rowTime{font-size:11px;color:var(--muted);white-space:nowrap}.rowBottom{display:flex;align-items:center;gap:5px;color:var(--muted);min-width:0;margin-top:3px}.preview{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}.stateTag{font-size:10px;padding:2px 6px;border-radius:999px;background:#263740;color:#aebac1}.stateTag.hot{background:#4a1d24;color:#ffd4d8}.unread{min-width:20px;height:20px;padding:0 5px;border-radius:99px;background:var(--green2);color:#03231b;font-weight:800;font-size:10px;display:grid;place-items:center}.emptyList{padding:32px 20px;text-align:center;color:var(--muted)}.chatPane{min-width:0;display:flex;flex-direction:column;background:#0b141a}.chatPlaceholder{height:100%;display:grid;place-items:center;text-align:center;color:var(--muted);padding:30px}.placeholderCard{max-width:430px}.placeholderMark{width:92px;height:92px;border-radius:50%;display:grid;place-items:center;background:#202c33;margin:0 auto 20px;font-size:34px}.chatView{height:100%;display:none;flex-direction:column}.chatView.open{display:flex}.chatHead{height:60px;background:#202c33;display:flex;align-items:center;padding:8px 14px;gap:10px}.backBtn{display:none}.chatHead .avatar{width:40px;height:40px}.chatInfo{min-width:0;flex:1}.chatInfo b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.chatInfo span{font-size:11px;color:var(--muted)}.chatActions{display:flex;gap:4px}.takeBtn{border:0;border-radius:8px;background:var(--green);color:#06271f;padding:8px 12px;font-weight:800}.messages{flex:1;overflow:auto;padding:18px 7%;background-color:#0b141a;background-image:radial-gradient(circle at 20% 20%,rgba(255,255,255,.018) 0 1px,transparent 1.5px),radial-gradient(circle at 70% 60%,rgba(255,255,255,.012) 0 1px,transparent 1.5px);background-size:22px 22px,29px 29px}.bubbleRow{display:flex;margin:4px 0}.bubbleRow.out{justify-content:flex-end}.bubble{max-width:min(720px,78%);background:#202c33;border-radius:8px;padding:7px 9px 5px;box-shadow:0 1px 1px rgba(0,0,0,.15)}.bubbleRow.out .bubble{background:#005c4b}.bubbleMeta{text-align:right;color:#93a4ad;font-size:9px;margin-top:3px}.systemLine{text-align:center;margin:10px auto;color:#aebac1;font-size:11px;background:#182229;display:table;padding:5px 9px;border-radius:7px}.hotStrip{display:none;background:#402028;border-bottom:1px solid #613039;padding:8px 14px;color:#ffd4d8}.hotStrip.show{display:flex;align-items:center;justify-content:space-between;gap:10px}.composer{min-height:62px;background:#202c33;padding:9px 11px;display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:7px;align-items:end}.composer textarea{resize:none;max-height:120px;min-height:42px;border:0;outline:0;border-radius:9px;background:#2a3942;color:var(--text);padding:11px 12px}.sendBtn{border:0;border-radius:50%;width:42px;height:42px;background:var(--green);color:#06271f;font-size:18px;font-weight:900}.hotToast{position:fixed;left:50%;top:12px;transform:translateX(-50%);background:#4a1d24;border:1px solid #74303c;color:#ffd9dc;border-radius:999px;padding:9px 14px;font-weight:800;z-index:80;display:none;box-shadow:var(--shadow)}.hotToast.show{display:block}.modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;z-index:100;padding:18px;overflow:auto}.modal.open{display:grid;place-items:center}.modalCard{width:min(720px,100%);max-height:calc(100vh - 36px);overflow:auto;background:#111b21;border:1px solid #2a3942;border-radius:14px;box-shadow:var(--shadow)}.modalHead{position:sticky;top:0;background:#111b21;z-index:2;padding:15px 17px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.modalBody{padding:17px;display:grid;gap:14px}.modalFoot{position:sticky;bottom:0;background:#111b21;padding:13px 17px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}.settingsGroup{border:1px solid var(--line);background:#0d171d;border-radius:12px;padding:13px}.settingsGroup h3{margin:0 0 11px;font-size:14px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px}.field{display:grid;gap:5px}.field label{font-size:11px;color:var(--muted)}.field input,.field textarea,.field select{width:100%;border:1px solid #33444d;outline:0;background:#202c33;color:var(--text);border-radius:8px;padding:9px 10px}.field textarea{min-height:90px;resize:vertical}.switchRow{display:flex;align-items:center;justify-content:space-between;padding:7px 0}.btn{border:1px solid #354650;background:#202c33;border-radius:8px;padding:8px 11px}.btn.primary{border-color:transparent;background:var(--green);color:#06271f;font-weight:800}.btn.danger{border-color:#67303a;background:#3a1b21;color:#ffd2d6}.notice{padding:9px 10px;border-radius:8px;background:#182229;color:#aebac1;font-size:12px}.profileRows{display:grid;gap:6px}.profileManage{display:flex;align-items:center;gap:10px;border:0;background:#182229;border-radius:9px;padding:9px 10px;text-align:left}.profileManage .avatar{width:38px;height:38px}.profileManage span:nth-child(2){flex:1}.qrWrap{display:grid;place-items:center;padding:18px}.qrWrap img{width:min(320px,80vw);background:white;padding:10px;border-radius:12px}.mobileNav{display:none}.toast{position:fixed;right:15px;bottom:15px;background:#202c33;border:1px solid #354650;padding:10px 12px;border-radius:9px;opacity:0;pointer-events:none;transition:.2s;z-index:150;box-shadow:var(--shadow)}.toast.show{opacity:1}@media(max-width:900px){body{overflow:hidden}.shell{display:block}.rail{display:none}.listPane{height:100vh;border:0}.listTop{height:62px}.chatPane{position:fixed;inset:0;z-index:30;transform:translateX(100%);transition:.18s transform}.chatPane.mobileOpen{transform:translateX(0)}.backBtn{display:block}.mobileNav{position:fixed;left:0;right:0;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(4,1fr);background:#202c33;border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}.mobileNav button{border:0;background:transparent;color:var(--muted);padding:6px 3px;font-size:11px}.mobileNav button.active{color:var(--green2)}.chatList{padding-bottom:70px}.filters{padding-bottom:9px}.grid2{grid-template-columns:1fr}.hotToast{top:7px;font-size:12px}.messages{padding:12px 10px 18px}.bubble{max-width:86%}.composer{padding-bottom:calc(9px + env(safe-area-inset-bottom))}.chatPlaceholder{display:none}}
-</style>
-</head>
-<body>
-<div id="hotToast" class="hotToast">🔥 HOT Lead wartet auf Übernahme</div>
-<div class="shell">
-  <aside class="rail">
-    <div class="railLogo">WA</div>
-    <button id="railChats" class="railBtn active" title="Chats" onclick="setFilter('all')">💬</button>
-    <button id="railHot" class="railBtn" title="HOT" onclick="setFilter('hot')">🔥<span id="railHotBadge" class="railBadge">0</span></button>
-    <button class="railBtn" title="Profile" onclick="openProfiles()">👥</button>
-    <div class="railSpacer"></div>
-    <button class="railBtn" title="Einstellungen" onclick="openSettings()">⚙</button>
-  </aside>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#101a20" />
+    <title>wA-bot</title>
+    <style>
+      :root {
+        --bg: #0b141a;
+        --rail: #111b21;
+        --panel: #111b21;
+        --panel2: #202c33;
+        --panel3: #182229;
+        --line: #25343c;
+        --text: #e9edef;
+        --muted: #8696a0;
+        --green: #00a884;
+        --green2: #25d366;
+        --hot: #ef5965;
+        --amber: #f4b942;
+        --blue: #53bdeb;
+        --shadow: 0 16px 50px rgba(0, 0, 0, 0.34);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font:
+          14px/1.4 system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        overflow: hidden;
+      }
+      button,
+      input,
+      textarea,
+      select {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+        color: inherit;
+      }
+      .shell {
+        display: grid;
+        grid-template-columns: 58px 390px minmax(0, 1fr) 360px;
+        height: 100vh;
+      }
+      .rail {
+        background: #202c33;
+        border-right: 1px solid #1d2a30;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 10px 6px;
+        gap: 8px;
+      }
+      .railLogo {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--green);
+        color: #04231c;
+        font-weight: 900;
+        margin-bottom: 6px;
+      }
+      .railBtn {
+        position: relative;
+        width: 44px;
+        height: 44px;
+        border: 0;
+        border-radius: 12px;
+        background: transparent;
+        color: #aebac1;
+        font-size: 20px;
+      }
+      .railBtn:hover,
+      .railBtn.active {
+        background: #2a3942;
+        color: white;
+      }
+      .railBadge {
+        position: absolute;
+        right: 1px;
+        top: 1px;
+        min-width: 17px;
+        height: 17px;
+        border-radius: 99px;
+        padding: 0 4px;
+        background: var(--green);
+        color: #04231c;
+        font-size: 10px;
+        font-weight: 900;
+        display: none;
+        place-items: center;
+      }
+      .railBadge.show {
+        display: grid;
+      }
+      .railSpacer {
+        flex: 1;
+      }
+      .listPane {
+        background: var(--panel);
+        border-right: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .listTop {
+        height: 60px;
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .listTop h1 {
+        font-size: 21px;
+        margin: 0;
+      }
+      .topActions {
+        display: flex;
+        gap: 6px;
+      }
+      .icon {
+        border: 0;
+        background: transparent;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        font-size: 18px;
+        color: #aebac1;
+      }
+      .icon:hover {
+        background: #202c33;
+        color: white;
+      }
+      .profileChooser {
+        margin: 0 12px 8px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        background: #202c33;
+        border-radius: 9px;
+        padding: 8px 10px;
+      }
+      .profileChooser select {
+        flex: 1;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--text);
+        min-width: 0;
+      }
+      .profileChooser select option {
+        background: #202c33;
+      }
+      .connDot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #667781;
+      }
+      .connDot.online {
+        background: var(--green2);
+      }
+      .connDot.connecting {
+        background: var(--amber);
+      }
+      .searchBox {
+        margin: 0 12px 8px;
+        background: #202c33;
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        padding: 0 10px;
+        color: var(--muted);
+      }
+      .searchBox input {
+        width: 100%;
+        height: 36px;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--text);
+        padding-left: 8px;
+      }
+      .filters {
+        padding: 0 12px 8px;
+        display: flex;
+        gap: 7px;
+        overflow: auto;
+      }
+      .chip {
+        white-space: nowrap;
+        border: 0;
+        border-radius: 999px;
+        background: #202c33;
+        color: #aebac1;
+        padding: 7px 12px;
+        font-size: 12px;
+      }
+      .chip.active {
+        background: #0a332c;
+        color: #d9fdd3;
+      }
+      .chatList {
+        min-height: 0;
+        overflow: auto;
+        flex: 1;
+      }
+      .chatRow {
+        display: grid;
+        grid-template-columns: 50px minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        padding: 10px 13px;
+        border: 0;
+        background: transparent;
+        width: 100%;
+        text-align: left;
+        position: relative;
+      }
+      .chatRow:after {
+        content: "";
+        position: absolute;
+        left: 73px;
+        right: 0;
+        bottom: 0;
+        border-bottom: 1px solid #202c33;
+      }
+      .chatRow:hover,
+      .chatRow.active {
+        background: #202c33;
+      }
+      .avatar {
+        width: 49px;
+        height: 49px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, #53646d, #263740);
+        font-weight: 800;
+        color: white;
+        overflow: hidden;
+      }
+      .rowMain {
+        min-width: 0;
+      }
+      .rowTop {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        align-items: center;
+      }
+      .rowName {
+        font-size: 16px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .rowTime {
+        font-size: 11px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .rowBottom {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--muted);
+        min-width: 0;
+        margin-top: 3px;
+      }
+      .preview {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1;
+      }
+      .stateTag {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: #263740;
+        color: #aebac1;
+      }
+      .stateTag.hot {
+        background: #4a1d24;
+        color: #ffd4d8;
+      }
+      .unread {
+        min-width: 20px;
+        height: 20px;
+        padding: 0 5px;
+        border-radius: 99px;
+        background: var(--green2);
+        color: #03231b;
+        font-weight: 800;
+        font-size: 10px;
+        display: grid;
+        place-items: center;
+      }
+      .emptyList {
+        padding: 32px 20px;
+        text-align: center;
+        color: var(--muted);
+      }
+      .chatPane {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        background: #0b141a;
+      }
+      .chatPlaceholder {
+        height: 100%;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        color: var(--muted);
+        padding: 30px;
+      }
+      .placeholderCard {
+        max-width: 430px;
+      }
+      .placeholderMark {
+        width: 92px;
+        height: 92px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: #202c33;
+        margin: 0 auto 20px;
+        font-size: 34px;
+      }
+      .chatView {
+        height: 100%;
+        display: none;
+        flex-direction: column;
+      }
+      .chatView.open {
+        display: flex;
+      }
+      .chatHead {
+        height: 60px;
+        background: #202c33;
+        display: flex;
+        align-items: center;
+        padding: 8px 14px;
+        gap: 10px;
+      }
+      .backBtn {
+        display: none;
+      }
+      .chatHead .avatar {
+        width: 40px;
+        height: 40px;
+      }
+      .chatInfo {
+        min-width: 0;
+        flex: 1;
+      }
+      .chatInfo b {
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .chatInfo span {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .chatActions {
+        display: flex;
+        gap: 4px;
+      }
+      .takeBtn {
+        border: 0;
+        border-radius: 8px;
+        background: var(--green);
+        color: #06271f;
+        padding: 8px 12px;
+        font-weight: 800;
+      }
+      .messages {
+        flex: 1;
+        overflow: auto;
+        padding: 18px 7%;
+        background-color: #0b141a;
+        background-image:
+          radial-gradient(
+            circle at 20% 20%,
+            rgba(255, 255, 255, 0.018) 0 1px,
+            transparent 1.5px
+          ),
+          radial-gradient(
+            circle at 70% 60%,
+            rgba(255, 255, 255, 0.012) 0 1px,
+            transparent 1.5px
+          );
+        background-size:
+          22px 22px,
+          29px 29px;
+      }
+      .bubbleRow {
+        display: flex;
+        margin: 4px 0;
+      }
+      .bubbleRow.out {
+        justify-content: flex-end;
+      }
+      .bubble {
+        max-width: min(720px, 78%);
+        background: #202c33;
+        border-radius: 8px;
+        padding: 7px 9px 5px;
+        box-shadow: 0 1px 1px rgba(0, 0, 0, 0.15);
+      }
+      .bubbleRow.out .bubble {
+        background: #005c4b;
+      }
+      .bubbleMeta {
+        text-align: right;
+        color: #93a4ad;
+        font-size: 9px;
+        margin-top: 3px;
+      }
+      .systemLine {
+        text-align: center;
+        margin: 10px auto;
+        color: #aebac1;
+        font-size: 11px;
+        background: #182229;
+        display: table;
+        padding: 5px 9px;
+        border-radius: 7px;
+      }
+      .hotStrip {
+        display: none;
+        background: #402028;
+        border-bottom: 1px solid #613039;
+        padding: 8px 14px;
+        color: #ffd4d8;
+      }
+      .hotStrip.show {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .composer {
+        min-height: 62px;
+        background: #202c33;
+        padding: 9px 11px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 7px;
+        align-items: end;
+      }
+      .composer textarea {
+        resize: none;
+        max-height: 120px;
+        min-height: 42px;
+        border: 0;
+        outline: 0;
+        border-radius: 9px;
+        background: #2a3942;
+        color: var(--text);
+        padding: 11px 12px;
+      }
+      .sendBtn {
+        border: 0;
+        border-radius: 50%;
+        width: 42px;
+        height: 42px;
+        background: var(--green);
+        color: #06271f;
+        font-size: 18px;
+        font-weight: 900;
+      }
+      .sendBtn:disabled,
+      .composer textarea:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .hotToast {
+        position: fixed;
+        left: 50%;
+        top: 12px;
+        transform: translateX(-50%);
+        background: #4a1d24;
+        border: 1px solid #74303c;
+        color: #ffd9dc;
+        border-radius: 999px;
+        padding: 9px 14px;
+        font-weight: 800;
+        z-index: 80;
+        display: none;
+        pointer-events: none;
+        box-shadow: var(--shadow);
+      }
+      .hotToast.show {
+        display: block;
+      }
+      .modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        display: none;
+        z-index: 100;
+        padding: 18px;
+        overflow: auto;
+      }
+      .modal.open {
+        display: grid;
+        place-items: center;
+      }
+      .modalCard {
+        width: min(720px, 100%);
+        max-height: calc(100vh - 36px);
+        overflow: auto;
+        background: #111b21;
+        border: 1px solid #2a3942;
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+      }
+      .modalHead {
+        position: sticky;
+        top: 0;
+        background: #111b21;
+        z-index: 2;
+        padding: 15px 17px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .modalBody {
+        padding: 17px;
+        display: grid;
+        gap: 14px;
+      }
+      .modalFoot {
+        position: sticky;
+        bottom: 0;
+        background: #111b21;
+        padding: 13px 17px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+      .settingsGroup {
+        border: 1px solid var(--line);
+        background: #0d171d;
+        border-radius: 12px;
+        padding: 13px;
+      }
+      .settingsGroup h3 {
+        margin: 0 0 11px;
+        font-size: 14px;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 11px;
+      }
+      .field {
+        display: grid;
+        gap: 5px;
+      }
+      .field label {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .field input,
+      .field textarea,
+      .field select {
+        width: 100%;
+        border: 1px solid #33444d;
+        outline: 0;
+        background: #202c33;
+        color: var(--text);
+        border-radius: 8px;
+        padding: 9px 10px;
+      }
+      .field textarea {
+        min-height: 90px;
+        resize: vertical;
+      }
+      .switchRow {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 7px 0;
+      }
+      .btn {
+        border: 1px solid #354650;
+        background: #202c33;
+        border-radius: 8px;
+        padding: 8px 11px;
+      }
+      .btn.primary {
+        border-color: transparent;
+        background: var(--green);
+        color: #06271f;
+        font-weight: 800;
+      }
+      .btn.danger {
+        border-color: #67303a;
+        background: #3a1b21;
+        color: #ffd2d6;
+      }
+      .notice {
+        padding: 9px 10px;
+        border-radius: 8px;
+        background: #182229;
+        color: #aebac1;
+        font-size: 12px;
+      }
+      .profileRows {
+        display: grid;
+        gap: 6px;
+      }
+      .profileManage {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 0;
+        background: #182229;
+        border-radius: 9px;
+        padding: 9px 10px;
+        text-align: left;
+      }
+      .profileManage .avatar {
+        width: 38px;
+        height: 38px;
+      }
+      .profileManage span:nth-child(2) {
+        flex: 1;
+      }
+      .qrWrap {
+        display: grid;
+        place-items: center;
+        padding: 18px;
+      }
+      .qrWrap img {
+        width: min(320px, 80vw);
+        background: white;
+        padding: 10px;
+        border-radius: 12px;
+      }
+      .mobileNav {
+        display: none;
+      }
+      .toast {
+        position: fixed;
+        right: 15px;
+        bottom: 15px;
+        background: #202c33;
+        border: 1px solid #354650;
+        padding: 10px 12px;
+        border-radius: 9px;
+        opacity: 0;
+        pointer-events: none;
+        transition: 0.2s;
+        z-index: 150;
+        box-shadow: var(--shadow);
+      }
+      .toast.show {
+        opacity: 1;
+      }
+      @media (max-width: 900px) {
+        body {
+          overflow: hidden;
+        }
+        .shell {
+          display: block;
+        }
+        .rail {
+          display: none;
+        }
+        .listPane {
+          height: 100vh;
+          border: 0;
+        }
+        .listTop {
+          height: 62px;
+        }
+        .chatPane {
+          position: fixed;
+          inset: 0;
+          z-index: 30;
+          transform: translateX(100%);
+          transition: 0.18s transform;
+        }
+        .chatPane.mobileOpen {
+          transform: translateX(0);
+        }
+        .backBtn {
+          display: block;
+        }
+        .mobileNav {
+          position: fixed;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 20;
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          background: #202c33;
+          border-top: 1px solid var(--line);
+          padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+        }
+        .mobileNav button {
+          border: 0;
+          background: transparent;
+          color: var(--muted);
+          padding: 6px 3px;
+          font-size: 11px;
+        }
+        .mobileNav button.active {
+          color: var(--green2);
+        }
+        .chatList {
+          padding-bottom: 70px;
+        }
+        .filters {
+          padding-bottom: 9px;
+        }
+        .grid2 {
+          grid-template-columns: 1fr;
+        }
+        .hotToast {
+          top: 7px;
+          font-size: 12px;
+        }
+        .messages {
+          padding: 12px 10px 18px;
+        }
+        .bubble {
+          max-width: 86%;
+        }
+        .composer {
+          padding-bottom: calc(9px + env(safe-area-inset-bottom));
+        }
+        .chatPlaceholder {
+          display: none;
+        }
+      }
+      .quickBar {
+        display: none;
+        gap: 7px;
+        overflow-x: auto;
+        padding: 7px 10px;
+        background: #182229;
+        border-top: 1px solid var(--line);
+      }
+      .quickBar.show {
+        display: flex;
+      }
+      .quickReply {
+        white-space: nowrap;
+        border: 1px solid #36505a;
+        background: #203139;
+        border-radius: 999px;
+        padding: 7px 10px;
+        color: #d9fdd3;
+        font-size: 12px;
+      }
+      .composer {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+      }
+      .mediaGrid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 10px;
+      }
+      .mediaTile {
+        border: 1px solid var(--line);
+        background: #182229;
+        border-radius: 10px;
+        padding: 7px;
+        text-align: left;
+      }
+      .mediaTile img {
+        width: 100%;
+        aspect-ratio: 1/1;
+        object-fit: cover;
+        border-radius: 8px;
+        display: block;
+      }
+      .avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .composerMedia:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .mobileTakeover {
+        display: none;
+      }
+      .mobileTakeoverCopy {
+        min-width: 0;
+      }
+      .mobileTakeoverCopy b {
+        display: block;
+        font-size: 13px;
+      }
+      .mobileTakeoverCopy span {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+        margin-top: 2px;
+      }
+      @media (max-width: 900px) {
+        .hotToast {
+          display: none !important;
+        }
+        .chatHead {
+          height: auto;
+          min-height: 64px;
+          padding: 8px 10px;
+          gap: 8px;
+        }
+        .chatHead #takeBtn {
+          display: none !important;
+        }
+        .chatView.isHot .closeChatAction {
+          display: none !important;
+        }
+        .hotStrip.show {
+          display: block;
+          padding: 8px 12px;
+          font-size: 12px;
+          line-height: 1.35;
+        }
+        .hotStrip .takeBtn {
+          display: none !important;
+        }
+        .chatView.isHot .composer,
+        .chatView.isHot .quickBar {
+          display: none !important;
+        }
+        .chatView.isHot .mobileTakeover {
+          display: flex;
+        }
+        .mobileTakeover {
+          align-items: center;
+          gap: 10px;
+          background: #202c33;
+          border-top: 1px solid var(--line);
+          padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+        }
+        .mobileTakeoverCopy {
+          flex: 1;
+        }
+        .mobileTakeover .takeBtn {
+          flex: 0 0 auto;
+          min-width: 132px;
+          min-height: 48px;
+          font-size: 15px;
+          padding: 10px 14px;
+        }
+        .messages {
+          padding-top: 10px;
+        }
+        .chatInfo b {
+          font-size: 15px;
+        }
+        .chatInfo span {
+          font-size: 10px;
+        }
+      }
+      .composer {
+        grid-template-columns: auto auto minmax(0, 1fr) auto;
+      }
+      .locationBtn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .shareLocationGrid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .placeSearchRow {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+      }
+      .placeSuggestions {
+        display: grid;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .placeSuggestion {
+        border: 1px solid var(--line);
+        background: #182229;
+        border-radius: 10px;
+        color: inherit;
+        padding: 9px 11px;
+        text-align: left;
+        cursor: pointer;
+      }
+      .centralControl {
+        opacity: 0.72;
+      }
+      @media (max-width: 900px) {
+        .shareLocationGrid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .composer {
+        grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+      }
+      .entryPhotoGrid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .entryPhotoBtn {
+        border: 1px solid var(--line);
+        background: #182229;
+        border-radius: 12px;
+        padding: 10px;
+        text-align: left;
+        color: inherit;
+      }
+      .entryPhotoBtn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .entryPhotoBtn img {
+        width: 100%;
+        aspect-ratio: 4/3;
+        object-fit: cover;
+        border-radius: 9px;
+        display: block;
+        margin-bottom: 8px;
+      }
+      @media (max-width: 520px) {
+        .entryPhotoGrid {
+          grid-template-columns: 1fr;
+        }
+        .composer {
+          grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+          gap: 5px;
+        }
+        .composer .icon {
+          width: 36px;
+          height: 36px;
+        }
+        .sendBtn {
+          width: 38px;
+          height: 38px;
+        }
+      }
+      .toolbox {
+        min-width: 0;
+        background: #101a20;
+        border-left: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .toolboxHead {
+        min-height: 60px;
+        padding: 12px 13px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 9px;
+      }
+      .toolboxHead strong {
+        display: block;
+        font-size: 14px;
+      }
+      .toolboxHead small {
+        display: block;
+        max-width: 230px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--muted);
+        font-size: 10px;
+        margin-top: 2px;
+      }
+      .toolboxStatus {
+        font-size: 10px;
+        color: var(--green2);
+        white-space: nowrap;
+      }
+      .toolTabs {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 5px;
+        padding: 8px;
+        border-bottom: 1px solid var(--line);
+      }
+      .toolTabs button {
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #9fb0b9;
+        padding: 8px 3px;
+        font-size: 11px;
+      }
+      .toolTabs button:hover {
+        background: #17242b;
+      }
+      .toolTabs button.active {
+        background: #0a332c;
+        color: #d9fdd3;
+      }
+      .toolPanel {
+        display: none;
+        min-height: 0;
+        overflow: auto;
+        flex: 1;
+        padding: 11px;
+      }
+      .toolPanel.active {
+        display: block;
+      }
+      .toolSearch {
+        height: 38px;
+        background: var(--panel2);
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        padding: 0 9px;
+        color: var(--muted);
+        margin-bottom: 9px;
+      }
+      .toolSearch input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--text);
+        padding-left: 7px;
+      }
+      .toolHint {
+        font-size: 11px;
+        color: var(--muted);
+        line-height: 1.45;
+        margin: 2px 2px 11px;
+      }
+      .toolList {
+        display: grid;
+        gap: 7px;
+      }
+      .toolCard {
+        width: 100%;
+        border: 1px solid #2b3b44;
+        background: #162229;
+        color: var(--text);
+        border-radius: 10px;
+        padding: 10px;
+        text-align: left;
+        display: grid;
+        gap: 4px;
+      }
+      .toolCard:hover {
+        border-color: #45606d;
+        background: #1a2930;
+      }
+      .toolCard strong {
+        font-size: 12px;
+      }
+      .toolCard span,
+      .toolCard small {
+        font-size: 10px;
+        color: #9fb0b9;
+        line-height: 1.4;
+      }
+      .toolMeta {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        color: #69808b !important;
+        font-size: 9px !important;
+      }
+      .toolPhotoGrid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .toolPhoto {
+        border: 1px solid #2b3b44;
+        background: #162229;
+        color: var(--text);
+        border-radius: 10px;
+        padding: 7px;
+        text-align: left;
+      }
+      .toolPhoto img {
+        width: 100%;
+        height: 92px;
+        object-fit: cover;
+        border-radius: 7px;
+        display: block;
+        margin-bottom: 7px;
+      }
+      .toolPhoto strong {
+        font-size: 11px;
+        display: block;
+      }
+      .toolBlock {
+        border: 1px solid #2b3b44;
+        background: #0d171d;
+        border-radius: 11px;
+        padding: 10px;
+        margin-bottom: 10px;
+      }
+      .toolBlockTitle {
+        font-weight: 750;
+        font-size: 12px;
+        margin-bottom: 8px;
+      }
+      .toolBlock textarea {
+        width: 100%;
+        resize: vertical;
+        min-height: 72px;
+        border: 1px solid #33444d;
+        outline: 0;
+        background: var(--panel2);
+        color: var(--text);
+        border-radius: 8px;
+        padding: 9px 10px;
+        margin-bottom: 8px;
+      }
+      .toolActions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 7px;
+      }
+      .toolActions button,
+      .toolFull {
+        border: 1px solid #354650;
+        background: var(--panel2);
+        color: var(--text);
+        border-radius: 8px;
+        padding: 8px;
+      }
+      .toolFull {
+        width: 100%;
+      }
+      .toolPrimary {
+        background: var(--green) !important;
+        border-color: var(--green) !important;
+        color: #05241d !important;
+        font-weight: 800;
+      }
+      .toolActions button:disabled,
+      .toolFull:disabled {
+        opacity: 0.42;
+        cursor: not-allowed;
+      }
+      .recordState {
+        font-size: 11px;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      .recordState.recording {
+        color: #ff9da5;
+      }
+      .toolBlock audio {
+        width: 100%;
+        height: 36px;
+        margin: 7px 0;
+      }
+      .toolboxToggle {
+        display: none;
+      }
+      .toolEmpty {
+        padding: 18px 8px;
+        color: var(--muted);
+        font-size: 11px;
+        text-align: center;
+      }
+      .toolBackdrop {
+        display: none;
+      }
+      @media (max-width: 1350px) {
+        .shell {
+          grid-template-columns: 58px 340px minmax(0, 1fr);
+        }
+        .toolbox {
+          position: fixed;
+          right: 0;
+          top: 0;
+          bottom: 0;
+          width: min(380px, 92vw);
+          z-index: 85;
+          box-shadow: var(--shadow);
+          transform: translateX(102%);
+          transition: transform 0.18s ease;
+        }
+        .toolbox.open {
+          transform: translateX(0);
+        }
+        .toolboxToggle {
+          display: inline-grid;
+          place-items: center;
+        }
+        .toolBackdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.45);
+          z-index: 84;
+        }
+        .toolBackdrop.open {
+          display: block;
+        }
+      }
+      @media (max-width: 900px) {
+        .toolbox {
+          width: min(360px, 94vw);
+          z-index: 120;
+        }
+        .toolBackdrop {
+          z-index: 119;
+        }
+        .toolPhotoGrid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="hotToast" class="hotToast">🔥 HOT Lead wartet auf Übernahme</div>
+    <div class="shell">
+      <aside class="rail">
+        <div class="railLogo">WA</div>
+        <button
+          id="railChats"
+          class="railBtn active"
+          title="Chats"
+          onclick="setFilter('all')"
+        >
+          💬
+        </button>
+        <button
+          id="railHot"
+          class="railBtn"
+          title="HOT"
+          onclick="setFilter('hot')"
+        >
+          🔥<span id="railHotBadge" class="railBadge">0</span>
+        </button>
+        <button class="railBtn" title="Profile" onclick="openProfiles()">
+          👥
+        </button>
+        <div class="railSpacer"></div>
+        <button class="railBtn" title="Einstellungen" onclick="openSettings()">
+          ⚙
+        </button>
+      </aside>
 
-  <section class="listPane">
-    <header class="listTop"><h1>Chats</h1><div class="topActions"><button class="icon" title="Profil hinzufügen" onclick="newProfile()">＋</button><button class="icon" title="Einstellungen" onclick="openSettings()">⋮</button></div></header>
-    <div class="profileChooser"><span id="profileDot" class="connDot"></span><select id="profileSelect" onchange="chooseProfile(this.value)"><option value="">Alle Profile</option></select><button class="icon" style="width:28px;height:28px" title="Profile verwalten" onclick="openProfiles()">⚙</button></div>
-    <div class="searchBox">⌕<input id="search" placeholder="Suchen oder neuen Chat filtern" oninput="renderChatList()"></div>
-    <div class="filters"><button id="fAll" class="chip active" onclick="setFilter('all')">Alle</button><button id="fUnread" class="chip" onclick="setFilter('unread')">Ungelesen</button><button id="fHot" class="chip" onclick="setFilter('hot')">HOT</button><button id="fMine" class="chip" onclick="setFilter('mine')">Meine</button><button id="fAi" class="chip" onclick="setFilter('ai')">KI</button></div>
-    <div id="chatList" class="chatList"></div>
-  </section>
+      <section class="listPane">
+        <header class="listTop">
+          <h1>Chats</h1>
+          <div class="topActions">
+            <button
+              class="icon"
+              title="Profil hinzufügen"
+              onclick="newProfile()"
+            >
+              ＋</button
+            ><button
+              class="icon"
+              title="Einstellungen"
+              onclick="openSettings()"
+            >
+              ⋮
+            </button>
+          </div>
+        </header>
+        <div class="profileChooser">
+          <span id="profileDot" class="connDot"></span
+          ><select id="profileSelect" onchange="chooseProfile(this.value)">
+            <option value="">Alle Profile</option></select
+          ><button
+            class="icon"
+            style="width: 28px; height: 28px"
+            title="Profile verwalten"
+            onclick="openProfiles()"
+          >
+            ⚙
+          </button>
+        </div>
+        <div class="searchBox">
+          ⌕<input
+            id="search"
+            placeholder="Suchen oder neuen Chat filtern"
+            oninput="renderChatList()"
+          />
+        </div>
+        <div class="filters">
+          <button id="fAll" class="chip active" onclick="setFilter('all')">
+            Alle</button
+          ><button id="fUnread" class="chip" onclick="setFilter('unread')">
+            Ungelesen</button
+          ><button id="fHot" class="chip" onclick="setFilter('hot')">HOT</button
+          ><button id="fMine" class="chip" onclick="setFilter('mine')">
+            Meine</button
+          ><button id="fAi" class="chip" onclick="setFilter('ai')">KI</button>
+        </div>
+        <div id="chatList" class="chatList"></div>
+      </section>
 
-  <main id="chatPane" class="chatPane">
-    <div id="chatPlaceholder" class="chatPlaceholder"><div class="placeholderCard"><div class="placeholderMark">💬</div><h2>wA-bot</h2><p>Wähle links einen Chat. Die Bedienung folgt bewusst dem bekannten Messenger-Muster: Liste links, Unterhaltung rechts, Filter oben.</p></div></div>
-    <div id="chatView" class="chatView">
-      <header class="chatHead"><button class="icon backBtn" onclick="mobileBack()">←</button><div id="chatAvatar" class="avatar">?</div><div class="chatInfo"><b id="chatName">Chat</b><span id="chatMeta"></span></div><div class="chatActions"><button id="takeBtn" class="takeBtn" onclick="takeover()">Übernehmen</button><button id="returnBtn" class="icon" title="Zur KI zurück" onclick="returnAi()">🤖</button><button class="icon" title="Schließen" onclick="closeConversation()">⋮</button></div></header>
-      <div id="hotStrip" class="hotStrip"><span id="hotReason">HOT Lead</span><button class="takeBtn" onclick="takeover()">Jetzt übernehmen</button></div>
-      <section id="messages" class="messages"></section>
-      <footer class="composer"><button class="icon" title="Anhängen">＋</button><button class="icon" title="Emoji">☺</button><textarea id="composer" rows="1" placeholder="Nachricht eingeben"></textarea><button class="sendBtn" onclick="sendMessage()">➤</button></footer>
+      <main id="chatPane" class="chatPane">
+        <div id="chatPlaceholder" class="chatPlaceholder">
+          <div class="placeholderCard">
+            <div class="placeholderMark">💬</div>
+            <h2>wA-bot</h2>
+            <p>
+              Wähle links einen Chat. Die Bedienung folgt bewusst dem bekannten
+              Messenger-Muster: Liste links, Unterhaltung rechts, Filter oben.
+            </p>
+          </div>
+        </div>
+        <div id="chatView" class="chatView">
+          <header class="chatHead">
+            <button class="icon backBtn" onclick="mobileBack()">←</button>
+            <div id="chatAvatar" class="avatar">?</div>
+            <div class="chatInfo">
+              <b id="chatName">Chat</b><span id="chatMeta"></span>
+            </div>
+            <div class="chatActions">
+              <button
+                class="icon toolboxToggle"
+                title="Schnellaktionen"
+                aria-label="Schnellaktionen"
+                onclick="toggleQuickToolbox()"
+              >
+                🧰</button
+              ><button id="takeBtn" class="takeBtn" onclick="takeover()">
+                Übernehmen</button
+              ><button
+                id="returnBtn"
+                class="icon"
+                title="Zur KI zurück"
+                onclick="returnAi()"
+              >
+                🤖</button
+              ><button
+                class="icon closeChatAction"
+                title="Schließen"
+                aria-label="Chat schließen"
+                onclick="closeConversation()"
+              >
+                ✕
+              </button>
+            </div>
+          </header>
+          <div id="hotStrip" class="hotStrip">
+            <span id="hotReason">HOT Lead</span
+            ><button class="takeBtn" onclick="takeover()">
+              Jetzt übernehmen
+            </button>
+          </div>
+          <section id="messages" class="messages"></section>
+          <div id="quickBar" class="quickBar"></div>
+          <div id="mobileTakeover" class="mobileTakeover">
+            <div class="mobileTakeoverCopy">
+              <b>🔥 Bereit für Übernahme</b
+              ><span>KI ist gestoppt · du kannst jetzt antworten</span>
+            </div>
+            <button class="takeBtn" onclick="takeover()">Übernehmen</button>
+          </div>
+          <footer class="composer">
+            <button
+              id="mediaBtn"
+              class="icon composerMedia"
+              title="Profilbilder senden"
+              aria-label="Profilbilder senden"
+              onclick="openMediaPicker()"
+            >
+              🖼</button
+            ><button
+              id="locationBtn"
+              class="icon locationBtn"
+              title="Wahladresse als Standort senden"
+              aria-label="Wahladresse als Standort senden"
+              onclick="sendProfileLocation()"
+            >
+              📍</button
+            ><button
+              id="entryPhotoBtn"
+              class="icon composerMedia"
+              title="Haustür- oder Klingelfoto senden"
+              aria-label="Haustür- oder Klingelfoto senden"
+              onclick="openEntryPhotoPicker()"
+            >
+              🏠</button
+            ><textarea
+              id="composer"
+              rows="1"
+              placeholder="Chat zuerst übernehmen"
+              disabled
+            ></textarea
+            ><button class="sendBtn" onclick="sendMessage()">➤</button>
+          </footer>
+        </div>
+      </main>
+      <aside id="quickToolbox" class="toolbox" aria-label="Schnellaktionen">
+        <header class="toolboxHead">
+          <div>
+            <strong>Schnellaktionen</strong
+            ><small id="toolboxContext">Chat auswählen</small>
+          </div>
+          <span class="toolboxStatus">● bereit</span>
+        </header>
+        <nav class="toolTabs" aria-label="Werkzeuge">
+          <button
+            class="active"
+            type="button"
+            data-tool-tab="replies"
+            onclick="selectQuickTool('replies')"
+          >
+            Antworten
+          </button>
+          <button
+            type="button"
+            data-tool-tab="photos"
+            onclick="selectQuickTool('photos')"
+          >
+            Fotos
+          </button>
+          <button
+            type="button"
+            data-tool-tab="location"
+            onclick="selectQuickTool('location')"
+          >
+            GPS
+          </button>
+          <button
+            type="button"
+            data-tool-tab="voice"
+            onclick="selectQuickTool('voice')"
+          >
+            Sprache
+          </button>
+        </nav>
+        <section class="toolPanel active" data-tool-panel="replies">
+          <label class="toolSearch"
+            >⌕<input
+              id="toolReplySearch"
+              placeholder="Antwort suchen …"
+              oninput="renderToolReplies()"
+          /></label>
+          <div class="toolHint">
+            Klick fügt die Vorlage nur in den Entwurf ein. {{name}} wird durch
+            den Kontaktnamen ersetzt.
+          </div>
+          <div id="toolReplies" class="toolList"></div>
+        </section>
+        <section class="toolPanel" data-tool-panel="photos">
+          <div class="toolHint">
+            Profilbilder sowie Haustür/Klingel. Vor dem echten Versand wird
+            bestätigt.
+          </div>
+          <div id="toolPhotos" class="toolPhotoGrid"></div>
+        </section>
+        <section class="toolPanel" data-tool-panel="location">
+          <div class="toolHint">
+            Gespeicherte Profiladresse als nativer WhatsApp-Standort.
+          </div>
+          <div id="toolLocations" class="toolList"></div>
+        </section>
+        <section class="toolPanel" data-tool-panel="voice">
+          <div class="toolBlock">
+            <div class="toolBlockTitle">Vorgefertigte Sprachnachrichten</div>
+            <div id="toolVoicePresets" class="toolList"></div>
+          </div>
+          <div class="toolBlock">
+            <div class="toolBlockTitle">Sprachnachricht aufnehmen</div>
+            <div id="recordState" class="recordState">Bereit zur Aufnahme</div>
+            <div class="toolActions">
+              <button
+                id="recordButton"
+                type="button"
+                onclick="startVoiceRecording()"
+              >
+                ● Aufnahme</button
+              ><button
+                id="stopRecordButton"
+                type="button"
+                onclick="stopVoiceRecording()"
+                disabled
+              >
+                ■ Stop
+              </button>
+            </div>
+            <audio id="voicePreview" controls hidden></audio>
+            <div class="toolActions">
+              <button
+                id="discardRecordingButton"
+                type="button"
+                onclick="discardVoiceRecording()"
+                disabled
+              >
+                Verwerfen</button
+              ><button
+                id="sendRecordingButton"
+                class="toolPrimary"
+                type="button"
+                onclick="sendVoiceRecording()"
+                disabled
+              >
+                Senden
+              </button>
+            </div>
+          </div>
+          <div class="toolBlock">
+            <div class="toolBlockTitle">Text → Sprache</div>
+            <textarea
+              id="toolTtsText"
+              maxlength="1200"
+              placeholder="Text für die Sprachnachricht …"
+            ></textarea
+            ><button
+              class="toolFull toolPrimary"
+              type="button"
+              onclick="sendToolTts()"
+            >
+              Als Sprache senden
+            </button>
+          </div>
+        </section>
+      </aside>
     </div>
-  </main>
-</div>
+    <div
+      id="toolBackdrop"
+      class="toolBackdrop"
+      onclick="closeQuickToolbox()"
+    ></div>
 
-<nav class="mobileNav"><button class="active" onclick="mobileFilter('all',this)">💬<br>Chats</button><button onclick="mobileFilter('hot',this)">🔥<br>HOT</button><button onclick="openProfiles()">👥<br>Profile</button><button onclick="openSettings()">⚙<br>Setup</button></nav>
+    <nav class="mobileNav">
+      <button class="active" onclick="mobileFilter('all',this)">
+        💬<br />Chats</button
+      ><button onclick="mobileFilter('hot',this)">🔥<br />HOT</button
+      ><button onclick="openProfiles()">👥<br />Profile</button
+      ><button onclick="openSettings()">⚙<br />Setup</button>
+    </nav>
 
-<div id="profilesModal" class="modal"><div class="modalCard"><div class="modalHead"><b>Profile</b><button class="icon" onclick="closeModal('profilesModal')">✕</button></div><div class="modalBody"><div id="profileRows" class="profileRows"></div><button class="btn primary" onclick="closeModal('profilesModal');newProfile()">＋ Neues Profil</button></div></div></div>
+    <div id="profilesModal" class="modal">
+      <div class="modalCard">
+        <div class="modalHead">
+          <b>Profile</b
+          ><button class="icon" onclick="closeModal('profilesModal')">✕</button>
+        </div>
+        <div class="modalBody">
+          <div id="profileRows" class="profileRows"></div>
+          <button
+            class="btn primary"
+            onclick="closeModal('profilesModal');newProfile()"
+          >
+            ＋ Neues Profil
+          </button>
+        </div>
+      </div>
+    </div>
 
-<div id="profileModal" class="modal"><div class="modalCard"><div class="modalHead"><b id="profileModalTitle">Profil</b><button class="icon" onclick="closeModal('profileModal')">✕</button></div><div class="modalBody">
-  <div class="grid2"><div class="field"><label>Name</label><input id="pName"></div><div class="field"><label>Nummer / Label</label><input id="pPhone" placeholder="z. B. Köln 1"></div><div class="field"><label>Standort</label><input id="pLocation"></div><div class="field"><label>Preisinfo</label><input id="pPrice"></div><div class="field"><label>Zeiten</label><input id="pHours"></div><div class="field"><label>Antwortstil</label><select id="pStyle"><option>kurz</option><option>locker</option><option>direkt</option><option>seriös</option></select></div></div>
-  <div class="settingsGroup"><h3>KI-Verhalten</h3><div class="switchRow"><span>Bot aktiv</span><input id="pBot" type="checkbox" checked></div><div class="field"><label>System-Prompt</label><textarea id="pSystem"></textarea></div><div class="field"><label>Wann ist ein Lead HOT?</label><textarea id="pQualify"></textarea></div><div class="grid2"><div class="field"><label>HOT-Schwelle</label><input id="pThreshold" type="number" step="0.05" min="0" max="1" value="0.8"></div><div class="field"><label>Max. KI-Runden</label><input id="pTurns" type="number" min="1" max="50" value="8"></div><div class="field"><label>Nach Übergabe</label><select id="pHandoff"><option value="stop">KI stoppt</option><option value="assist">KI assistiert</option><option value="continue">KI darf weiter</option></select></div><div class="field"><label>Sprachmodus</label><select id="pVoice"><option value="off">Aus</option><option value="human_tts">Mitarbeiter → Stimme</option><option value="ai_tts">KI + Mitarbeiter → Stimme</option></select></div></div></div>
-  <div id="connectBox" class="settingsGroup"><h3>WhatsApp</h3><div id="connectStatus" class="notice">Nicht verbunden.</div><div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn primary" onclick="connectProfile()">QR koppeln</button><button class="btn" onclick="cloneProfile()">Profil kopieren</button><button class="btn danger" onclick="unlinkProfile()">Verknüpfung lösen</button></div></div>
-</div><div class="modalFoot"><button class="btn" onclick="closeModal('profileModal')">Abbrechen</button><button class="btn primary" onclick="saveProfile()">Speichern</button></div></div></div>
+    <div id="profileModal" class="modal">
+      <div class="modalCard">
+        <div class="modalHead">
+          <b id="profileModalTitle">Profil</b
+          ><button class="icon" onclick="closeModal('profileModal')">✕</button>
+        </div>
+        <div class="modalBody">
+          <div class="grid2">
+            <div class="field"><label>Name</label><input id="pName" /></div>
+            <div class="field">
+              <label>Profilbild-URL</label
+              ><input id="pAvatar" placeholder="https://…" />
+            </div>
+            <div class="field">
+              <label>Nummer / Label</label
+              ><input id="pPhone" placeholder="z. B. Köln 1" />
+            </div>
+            <div class="field">
+              <label>Standort</label><input id="pLocation" />
+            </div>
+            <div class="field">
+              <label>Wunschstandort / Einsatzgebiet</label
+              ><input
+                id="pDesiredLocation"
+                placeholder="z. B. Köln Innenstadt, max. 10 km"
+              />
+            </div>
+            <div class="field">
+              <label>Preisinfo</label><input id="pPrice" />
+            </div>
+            <div class="field"><label>Zeiten</label><input id="pHours" /></div>
+            <div class="field centralControl">
+              <label>Antwortstil · zentral</label
+              ><select id="pStyle" disabled>
+                <option value="zentral">Einheitliche Chat-Regeln</option>
+              </select>
+            </div>
+          </div>
+          <div class="settingsGroup">
+            <h3>KI-Verhalten</h3>
+            <div class="switchRow">
+              <span>Bot aktiv</span><input id="pBot" type="checkbox" checked />
+            </div>
+            <div class="field centralControl">
+              <label>System-Prompt · zentral verwaltet</label
+              ><textarea id="pSystem" readonly></textarea>
+            </div>
+            <div class="field centralControl">
+              <label>HOT-Regel · zentral verwaltet</label
+              ><textarea id="pQualify" readonly></textarea>
+            </div>
+            <div class="grid2">
+              <div class="field">
+                <label>HOT-Schwelle · zentral</label
+                ><input id="pThreshold" readonly value="0.8 · zentral" />
+              </div>
+              <div class="field">
+                <label>Max. KI-Runden · zentral</label
+                ><input id="pTurns" readonly value="8 · zentral" />
+              </div>
+              <div class="field">
+                <label>Nach Übergabe</label
+                ><select id="pHandoff" disabled>
+                  <option value="stop">KI stoppt (Beta)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Sprachmodus · zentral</label
+                ><select id="pVoice" disabled>
+                  <option value="off">Manuell über Sprachwerkzeuge</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="settingsGroup">
+            <h3>Modell & Medien (optional)</h3>
+            <div class="grid2">
+              <div class="field">
+                <label>Modell · zentral</label><input id="pModel" readonly />
+              </div>
+              <div class="field">
+                <label>Temperatur 0–2</label
+                ><input id="pTemp" readonly value="0.35 · zentral" />
+              </div>
+              <div class="field">
+                <label>Stimme · zentral</label
+                ><input id="pVoiceName" readonly value="Zentrale Stimme" />
+              </div>
+            </div>
+            <div class="settingsGroup">
+              <h3>Wahladresse als WhatsApp-Standort</h3>
+              <div class="field">
+                <label>Adresse mit Google suchen</label>
+                <div class="placeSearchRow">
+                  <input
+                    id="pShareSearch"
+                    placeholder="Straße, Hausnummer, Ort"
+                    onkeydown="if(event.key==='Enter'){event.preventDefault();searchProfileAddress()}"
+                  />
+                  <button
+                    class="btn"
+                    type="button"
+                    onclick="searchProfileAddress()"
+                  >
+                    Suchen
+                  </button>
+                </div>
+                <div id="pShareSuggestions" class="placeSuggestions"></div>
+              </div>
+              <div class="field">
+                <label>Name des Standorts</label
+                ><input id="pShareLabel" placeholder="z. B. Studio Köln" />
+              </div>
+              <div class="field" style="margin-top: 8px">
+                <label>Adresse</label
+                ><input
+                  id="pShareAddress"
+                  readonly
+                  placeholder="Straße Hausnr., PLZ Ort"
+                />
+              </div>
+              <div class="shareLocationGrid" style="margin-top: 8px">
+                <div class="field">
+                  <label>Breitengrad</label
+                  ><input
+                    id="pShareLat"
+                    readonly
+                    type="number"
+                    step="any"
+                    min="-90"
+                    max="90"
+                    placeholder="50.9375"
+                  />
+                </div>
+                <div class="field">
+                  <label>Längengrad</label
+                  ><input
+                    id="pShareLng"
+                    readonly
+                    type="number"
+                    step="any"
+                    min="-180"
+                    max="180"
+                    placeholder="6.9603"
+                  />
+                </div>
+              </div>
+              <div class="notice" style="margin-top: 8px">
+                Diese Adresse wird als echter WhatsApp-Standort gesendet; sie
+                ist unabhängig vom aktuellen Handy-GPS.
+              </div>
+            </div>
+            <div class="field" style="margin-top: 10px">
+              <label>Schnellantworten · zentral verwaltet</label
+              ><textarea id="pQuick" readonly></textarea>
+            </div>
+            <div class="settingsGroup">
+              <h3>Ankunftsfotos</h3>
+              <div class="field">
+                <label>Haustürfoto · HTTPS-URL</label
+                ><input id="pDoorPhoto" placeholder="https://…" />
+              </div>
+              <div class="field" style="margin-top: 8px">
+                <label>Klingelfoto · HTTPS-URL</label
+                ><input id="pBellPhoto" placeholder="https://…" />
+              </div>
+              <div class="notice" style="margin-top: 8px">
+                Im übernommenen Chat öffnet 🏠 zwei feste Sendeoptionen: Haustür
+                und Klingel.
+              </div>
+            </div>
+            <div class="field" style="margin-top: 10px">
+              <label>Bilder zum Senden · HTTPS-URL, eine pro Zeile</label
+              ><textarea id="pMedia" placeholder="https://…"></textarea>
+            </div>
+          </div>
+          <div id="connectBox" class="settingsGroup">
+            <h3>WhatsApp</h3>
+            <div id="connectStatus" class="notice">Nicht verbunden.</div>
+            <div
+              style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap"
+            >
+              <button class="btn primary" onclick="connectProfile()">
+                QR koppeln</button
+              ><button class="btn" onclick="cloneProfile()">
+                Profil kopieren</button
+              ><button class="btn danger" onclick="unlinkProfile()">
+                Verknüpfung lösen</button
+              ><button class="btn danger" onclick="deleteProfile()">
+                Profil löschen
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="modalFoot">
+          <button class="btn" onclick="closeModal('profileModal')">
+            Abbrechen</button
+          ><button class="btn primary" onclick="saveProfile()">
+            Speichern
+          </button>
+        </div>
+      </div>
+    </div>
 
-<div id="settingsModal" class="modal"><div class="modalCard"><div class="modalHead"><b>System einrichten</b><button class="icon" onclick="closeModal('settingsModal')">✕</button></div><div class="modalBody">
-  <div class="notice">Einmal LLM-API eintragen. Danach steuert jedes Profil nur noch Verhalten, Schwelle und Sprache.</div>
-  <div class="settingsGroup"><h3>LLM</h3><div class="field"><label>API-Basis-URL</label><input id="sBase" placeholder="https://api.openai.com"></div><div class="grid2"><div class="field"><label>Modell</label><input id="sModel" placeholder="gpt-5-mini"></div><div class="field"><label>API-Schlüssel</label><input id="sKey" type="password" placeholder="gespeichert oder neu eintragen"></div></div><div style="display:flex;gap:8px;align-items:center;margin-top:10px"><button class="btn" onclick="testLlm()">Verbindung testen</button><span id="testResult" style="color:var(--muted);font-size:12px"></span></div></div>
-  <div class="settingsGroup"><h3>Transparenz & Sprache</h3><div class="switchRow"><span>KI-Hinweis beim ersten Bot-Kontakt</span><input id="sDisclosure" type="checkbox" checked></div><div class="switchRow"><span>Sprachmodul aktivieren</span><input id="sVoiceEnabled" type="checkbox"></div><div class="grid2"><div class="field"><label>Sprach-Anbieter</label><input id="sVoiceProvider" value="same-api"></div><div class="field"><label>Sprachmodell</label><input id="sVoiceModel" value="gpt-4o-mini-tts"></div></div></div>
-  <div class="settingsGroup"><h3>Test</h3><button class="btn" onclick="seedHot()">🔥 Demo-HOT-Lead erzeugen</button></div>
-</div><div class="modalFoot"><button class="btn" onclick="closeModal('settingsModal')">Schließen</button><button class="btn primary" onclick="saveSettings()">Speichern</button></div></div></div>
+    <div id="settingsModal" class="modal">
+      <div class="modalCard">
+        <div class="modalHead">
+          <b>System einrichten</b
+          ><button class="icon" onclick="closeModal('settingsModal')">✕</button>
+        </div>
+        <div class="modalBody">
+          <div class="notice">
+            Einmal Modell und Sprachdienste einrichten. Chat-Regeln, Modell und
+            Schnellantworten gelten danach zentral für alle Profile.
+          </div>
+          <div class="settingsGroup">
+            <h3>LLM</h3>
+            <div class="field">
+              <label>API-Basis-URL</label
+              ><input id="sBase" placeholder="https://api.openai.com" />
+            </div>
+            <div class="grid2">
+              <div class="field">
+                <label>Modell</label
+                ><input id="sModel" placeholder="gpt-5-mini" />
+              </div>
+              <div class="field">
+                <label>API-Schlüssel</label
+                ><input
+                  id="sKey"
+                  type="password"
+                  placeholder="gespeichert oder neu eintragen"
+                />
+              </div>
+            </div>
+            <div
+              style="
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                margin-top: 10px;
+              "
+            >
+              <button class="btn" onclick="testLlm()">Verbindung testen</button
+              ><span
+                id="testResult"
+                style="color: var(--muted); font-size: 12px"
+              ></span>
+            </div>
+          </div>
+          <div class="settingsGroup">
+            <h3>Transparenz & Sprache</h3>
+            <div class="switchRow">
+              <span>KI-Hinweis beim ersten Bot-Kontakt</span
+              ><input id="sDisclosure" type="checkbox" checked />
+            </div>
+            <div class="switchRow">
+              <span>Sprachmodul aktivieren</span
+              ><input id="sVoiceEnabled" type="checkbox" />
+            </div>
+            <div class="grid2">
+              <div class="field">
+                <label>Sprach-Anbieter</label
+                ><input
+                  id="sVoiceProvider"
+                  value="same-api"
+                  disabled
+                  title="In der Beta ist der Sprach-Anbieter an dieselbe API gebunden"
+                />
+              </div>
+              <div class="field">
+                <label>Sprachmodell</label
+                ><input id="sVoiceModel" value="gpt-4o-mini-tts" />
+              </div>
+            </div>
+          </div>
+          <div class="settingsGroup">
+            <h3>HOT-Benachrichtigungen</h3>
+            <div class="notice" id="pushStatus">
+              Browser-Benachrichtigungen noch nicht aktiviert.
+            </div>
+            <button
+              class="btn"
+              id="pushBtn"
+              onclick="activatePush()"
+              style="margin-top: 10px"
+            >
+              🔔 HOT-Handyalarm aktivieren
+            </button>
+          </div>
+          <div class="settingsGroup">
+            <h3>KI-Testlabor</h3>
+            <div class="notice">
+              Testet das echte konfigurierte Modell ohne WhatsApp-Nachricht zu
+              senden.
+            </div>
+            <div class="field" style="margin-top: 10px">
+              <label>Profil</label
+              ><select id="sTestProfile"></select>
+            </div>
+            <div class="field" style="margin-top: 10px">
+              <label>Testnachricht des Leads</label
+              ><textarea
+                id="sTestMessage"
+                placeholder="z. B. Hallo, ich möchte heute um 20 Uhr einen Termin."
+              ></textarea>
+            </div>
+            <div
+              style="
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                flex-wrap: wrap;
+                margin-top: 10px;
+              "
+            >
+              <button class="btn" id="playgroundBtn" onclick="runPlayground()">
+                🧪 KI testen</button
+              ><button class="btn" onclick="seedHot()">
+                🔥 Demo-HOT erzeugen
+              </button>
+            </div>
+            <div
+              id="playgroundResult"
+              class="notice"
+              style="display: none; margin-top: 10px; white-space: pre-wrap"
+            ></div>
+          </div>
+        </div>
+        <div class="modalFoot">
+          <button class="btn" onclick="closeModal('settingsModal')">
+            Schließen</button
+          ><button class="btn primary" onclick="saveSettings()">
+            Speichern
+          </button>
+        </div>
+      </div>
+    </div>
 
-<div id="qrModal" class="modal"><div class="modalCard" style="max-width:430px"><div class="modalHead"><b>WhatsApp koppeln</b><button class="icon" onclick="closeModal('qrModal')">✕</button></div><div class="qrWrap"><div id="qrStatus" class="notice">QR wird erzeugt …</div><img id="qrImage" style="display:none" alt="WhatsApp QR-Code"></div></div></div>
-<div id="toast" class="toast"></div>
+    <div id="entryPhotoModal" class="modal">
+      <div class="modalCard">
+        <div class="modalHead">
+          <b>Ankunftsfoto senden</b
+          ><button class="icon" onclick="closeModal('entryPhotoModal')">
+            ✕
+          </button>
+        </div>
+        <div class="modalBody">
+          <div id="entryPhotoGrid" class="entryPhotoGrid"></div>
+        </div>
+      </div>
+    </div>
+    <div id="mediaModal" class="modal">
+      <div class="modalCard">
+        <div class="modalHead">
+          <b>Bilder dieses Profils</b
+          ><button class="icon" onclick="closeModal('mediaModal')">✕</button>
+        </div>
+        <div class="modalBody">
+          <div id="mediaGrid" class="mediaGrid"></div>
+        </div>
+      </div>
+    </div>
+    <div id="qrModal" class="modal">
+      <div class="modalCard" style="max-width: 430px">
+        <div class="modalHead">
+          <b>WhatsApp koppeln</b
+          ><button class="icon" onclick="closeModal('qrModal')">✕</button>
+        </div>
+        <div class="qrWrap">
+          <div id="qrStatus" class="notice">QR wird erzeugt …</div>
+          <img id="qrImage" style="display: none" alt="WhatsApp QR-Code" />
+        </div>
+      </div>
+    </div>
+    <div id="toast" class="toast"></div>
 
-<script>
-const state={profiles:[],conversations:[],settings:{},selectedProfile:'',currentChat:null,editingProfile:null,filter:'all',alarmTimer:null};
-const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-async function api(path,opts={}){const r=await fetch(path,{headers:{'content-type':'application/json',...(opts.headers||{})},...opts});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||`HTTP ${r.status}`);return j}
-function toast(msg){$('toast').textContent=msg;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2200)}
-function initials(n){return(String(n||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'?')}
-function profileBy(id){return state.profiles.find(p=>p.id===id)}
-function timeAgo(v){if(!v)return'';const s=(Date.now()-new Date(v).getTime())/1000;if(s<60)return'jetzt';if(s<3600)return Math.floor(s/60)+' Min.';if(s<86400)return Math.floor(s/3600)+' Std.';return new Date(v).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}
-async function load(){try{const d=await api('/api/bootstrap');state.profiles=d.profiles||[];state.conversations=d.conversations||[];state.settings=d.settings||{};render();alarm();if(state.currentChat){const refreshed=state.conversations.find(c=>c.id===state.currentChat.id);if(refreshed){state.currentChat=refreshed;renderChatHeader()}}}catch(e){console.error(e);toast('Server nicht erreichbar')}}
-function render(){renderProfileSelect();renderProfileRows();renderChatList();const hot=state.conversations.filter(c=>c.state==='HOT').length;$('railHotBadge').textContent=hot;$('railHotBadge').classList.toggle('show',hot>0)}
-function renderProfileSelect(){const sel=$('profileSelect');const value=state.selectedProfile;sel.innerHTML='<option value="">Alle Profile</option>'+state.profiles.map(p=>`<option value="${p.id}">${esc(p.name)} · ${esc(p.connection?.status||p.status||'offline')}</option>`).join('');sel.value=value;const p=profileBy(value);$('profileDot').className='connDot '+(p?.connection?.status||p?.status||'')}
-function renderProfileRows(){$('profileRows').innerHTML=state.profiles.map(p=>`<button class="profileManage" onclick="closeModal('profilesModal');editProfile('${p.id}')"><span class="avatar">${esc(initials(p.name))}</span><span><b>${esc(p.name)}</b><br><small style="color:var(--muted)">${esc(p.location||p.phone_label||'Nicht eingerichtet')} · ${esc(p.connection?.status||p.status||'offline')}</small></span><span>›</span></button>`).join('')||'<div class="emptyList">Noch keine Profile</div>'}
-function chooseProfile(v){state.selectedProfile=v;renderProfileSelect();renderChatList()}
-function setFilter(f){state.filter=f;document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));const map={all:'fAll',unread:'fUnread',hot:'fHot',mine:'fMine',ai:'fAi'};$(map[f])?.classList.add('active');$('railChats').classList.toggle('active',f!=='hot');$('railHot').classList.toggle('active',f==='hot');renderChatList()}
-function mobileFilter(f,btn){setFilter(f);document.querySelectorAll('.mobileNav button').forEach(x=>x.classList.remove('active'));btn.classList.add('active')}
-function filtered(){const q=$('search').value.trim().toLowerCase();return state.conversations.filter(c=>{if(c.state==='CLOSED')return false;if(state.selectedProfile&&c.profile_id!==state.selectedProfile)return false;if(state.filter==='unread'&&!(c.unread_count>0))return false;if(state.filter==='hot'&&c.state!=='HOT')return false;if(state.filter==='mine'&&c.state!=='HUMAN_ACTIVE')return false;if(state.filter==='ai'&&!['NEW','AI_ACTIVE','AI_ERROR','PAUSED'].includes(c.state))return false;if(q&&!`${c.contact_name||''} ${c.wa_jid||''} ${c.last_message_preview||''}`.toLowerCase().includes(q))return false;return true}).sort((a,b)=>new Date(b.last_message_at||0)-new Date(a.last_message_at||0))}
-function renderChatList(){const arr=filtered();$('chatList').innerHTML=arr.map(c=>{const p=profileBy(c.profile_id);const hot=c.state==='HOT';const label=hot?'HOT':c.state==='HUMAN_ACTIVE'?'Meine':'KI';return`<button class="chatRow ${state.currentChat?.id===c.id?'active':''}" onclick="openChat('${c.id}')"><div class="avatar">${esc(initials(c.contact_name||c.wa_jid))}</div><div class="rowMain"><div class="rowTop"><span class="rowName">${esc(c.contact_name||c.wa_jid)}</span><span class="rowTime">${esc(timeAgo(c.last_message_at))}</span></div><div class="rowBottom"><span class="preview">${esc(c.last_message_preview||'Keine Nachricht')}</span><span class="stateTag ${hot?'hot':''}">${esc(label)}</span></div><div style="font-size:10px;color:#667781;margin-top:2px">${esc(p?.name||'Profil')}</div></div><div>${c.unread_count>0?`<span class="unread">${c.unread_count}</span>`:''}</div></button>`}).join('')||'<div class="emptyList">Keine Chats in dieser Ansicht.</div>'}
-async function openChat(id){state.currentChat=state.conversations.find(c=>c.id===id);if(!state.currentChat)return;$('chatPlaceholder').style.display='none';$('chatView').classList.add('open');$('chatPane').classList.add('mobileOpen');renderChatHeader();renderChatList();await loadMessages()}
-function renderChatHeader(){const c=state.currentChat;if(!c)return;const p=profileBy(c.profile_id);$('chatName').textContent=c.contact_name||c.wa_jid;$('chatAvatar').textContent=initials(c.contact_name||c.wa_jid);$('chatMeta').textContent=(p?.name||'Profil')+' · '+(c.state==='HOT'?'HOT':c.state==='HUMAN_ACTIVE'?'von dir übernommen':'KI aktiv');$('takeBtn').style.display=c.state==='HOT'?'inline-block':'none';$('returnBtn').style.display=c.state==='HUMAN_ACTIVE'?'inline-block':'none';$('hotStrip').classList.toggle('show',c.state==='HOT');$('hotReason').textContent=c.hot_reason?'🔥 '+c.hot_reason:'🔥 HOT Lead wartet auf Übernahme'}
-async function loadMessages(){if(!state.currentChat)return;const d=await api('/api/conversations/'+state.currentChat.id+'/messages');$('messages').innerHTML=(d.data||[]).map(m=>m.kind==='system'?`<div class="systemLine">${esc(m.text||'System')}</div>`:`<div class="bubbleRow ${m.direction==='out'?'out':''}"><div class="bubble"><div>${esc(m.text||'['+m.kind+']')}</div><div class="bubbleMeta">${esc(m.sender)} · ${new Date(m.created_at).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}</div></div></div>`).join('');$('messages').scrollTop=$('messages').scrollHeight}
-function mobileBack(){$('chatPane').classList.remove('mobileOpen')}
-async function takeover(){if(!state.currentChat)return;await api('/api/conversations/'+state.currentChat.id+'/takeover',{method:'POST',body:'{}'});toast('Chat übernommen');await load();renderChatHeader()}
-async function returnAi(){if(!state.currentChat)return;await api('/api/conversations/'+state.currentChat.id+'/return-ai',{method:'POST',body:'{}'});toast('Zur KI zurückgegeben');await load();renderChatHeader()}
-async function closeConversation(){if(!state.currentChat||!confirm('Chat schließen?'))return;await api('/api/conversations/'+state.currentChat.id+'/close',{method:'POST',body:'{}'});state.currentChat=null;$('chatView').classList.remove('open');$('chatPlaceholder').style.display='grid';$('chatPane').classList.remove('mobileOpen');await load()}
-async function sendMessage(){if(!state.currentChat)return;const t=$('composer').value.trim();if(!t)return;$('composer').value='';try{await api('/api/conversations/'+state.currentChat.id+'/send',{method:'POST',body:JSON.stringify({text:t})});await loadMessages();await load()}catch(e){toast(e.message)}}
-function alarm(){const hot=state.conversations.filter(c=>c.state==='HOT').length;$('hotToast').classList.toggle('show',hot>0);if(hot>0&&!state.alarmTimer){beep();state.alarmTimer=setInterval(beep,3000)}if(!hot&&state.alarmTimer){clearInterval(state.alarmTimer);state.alarmTimer=null}}
-function beep(){try{const A=window.AudioContext||window.webkitAudioContext;const a=new A(),o=a.createOscillator(),g=a.createGain();o.frequency.value=820;g.gain.setValueAtTime(.08,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.18);o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+.18)}catch{}}
-function openProfiles(){$('profilesModal').classList.add('open');renderProfileRows()}function closeModal(id){$(id).classList.remove('open')}
-function newProfile(){state.editingProfile=null;fillProfile({name:'',phone_label:'',location:'',price_text:'',hours_text:'',bot_enabled:true,system_prompt:'Du bist ein kurzer, höflicher Vorqualifizierungsassistent. Prüfe Interesse und Ernsthaftigkeit. Sobald ein Lead klar terminbereit ist, markiere ihn als HOT und stoppe die Automatik.',qualification_prompt:'HOT bedeutet: konkretes echtes Interesse, Bereitschaft einen Termin zeitnah abzustimmen und keine offensichtliche Zeitverschwendung.',hot_threshold:.8,response_style:'kurz',max_ai_turns:8,handoff_behavior:'stop',voice_mode:'off'});$('profileModalTitle').textContent='Neues Profil';$('connectBox').style.display='none';$('profileModal').classList.add('open')}
-function editProfile(id){const p=profileBy(id);if(!p)return;state.editingProfile=id;fillProfile(p);$('profileModalTitle').textContent=p.name;$('connectBox').style.display='block';$('connectStatus').textContent='Status: '+(p.connection?.status||p.status||'offline');$('profileModal').classList.add('open')}
-function fillProfile(p){$('pName').value=p.name||'';$('pPhone').value=p.phone_label||'';$('pLocation').value=p.location||'';$('pPrice').value=p.price_text||'';$('pHours').value=p.hours_text||'';$('pBot').checked=p.bot_enabled!==false;$('pSystem').value=p.system_prompt||'';$('pQualify').value=p.qualification_prompt||'';$('pThreshold').value=p.hot_threshold??.8;$('pTurns').value=p.max_ai_turns??8;$('pStyle').value=p.response_style||'kurz';$('pHandoff').value=p.handoff_behavior||'stop';$('pVoice').value=p.voice_mode||'off'}
-function profilePayload(){return{name:$('pName').value.trim(),phone_label:$('pPhone').value.trim(),location:$('pLocation').value.trim(),price_text:$('pPrice').value.trim(),hours_text:$('pHours').value.trim(),bot_enabled:$('pBot').checked,system_prompt:$('pSystem').value.trim(),qualification_prompt:$('pQualify').value.trim(),hot_threshold:Number($('pThreshold').value),max_ai_turns:Number($('pTurns').value),response_style:$('pStyle').value,handoff_behavior:$('pHandoff').value,voice_mode:$('pVoice').value}}
-async function saveProfile(){const payload=profilePayload();if(!payload.name)return toast('Name fehlt');try{if(state.editingProfile)await api('/api/profiles/'+state.editingProfile,{method:'PATCH',body:JSON.stringify(payload)});else{const p=await api('/api/profiles',{method:'POST',body:JSON.stringify(payload)});state.editingProfile=p.id}closeModal('profileModal');toast('Profil gespeichert');await load()}catch(e){toast(e.message)}}
-async function cloneProfile(){if(!state.editingProfile)return;await api('/api/profiles/'+state.editingProfile+'/clone',{method:'POST',body:'{}'});toast('Profil kopiert');closeModal('profileModal');await load()}
-async function unlinkProfile(){if(!state.editingProfile||!confirm('WhatsApp-Verknüpfung lösen?'))return;await api('/api/profiles/'+state.editingProfile+'/unlink',{method:'POST',body:'{}'});toast('Verknüpfung gelöst');await load();editProfile(state.editingProfile)}
-async function connectProfile(){if(!state.editingProfile)return;$('qrModal').classList.add('open');$('qrImage').style.display='none';$('qrStatus').style.display='block';$('qrStatus').textContent='QR wird erzeugt …';try{await api('/api/profiles/'+state.editingProfile+'/connect',{method:'POST',body:'{}'});pollQr(state.editingProfile)}catch(e){$('qrStatus').textContent=e.message}}
-async function pollQr(id){for(let i=0;i<60;i++){await new Promise(r=>setTimeout(r,1500));try{const c=await api('/api/profiles/'+id+'/connection');if(c.status==='online'){$('qrStatus').style.display='block';$('qrStatus').textContent='✅ Verbunden';$('qrImage').style.display='none';toast('WhatsApp verbunden');await load();return}if(c.qr){$('qrImage').src=c.qr;$('qrImage').style.display='block';$('qrStatus').style.display='none'}}catch{}}$('qrStatus').style.display='block';$('qrStatus').textContent='QR abgelaufen. Bitte erneut starten.'}
-function openSettings(){const s=state.settings;$('sBase').value=s.llm_base_url||'https://api.openai.com';$('sModel').value=s.llm_model||'gpt-5-mini';$('sKey').value='';$('sDisclosure').checked=s.ai_disclosure_enabled!==false;$('sVoiceEnabled').checked=!!s.voice_enabled;$('sVoiceProvider').value=s.voice_provider||'same-api';$('sVoiceModel').value=s.voice_model||'gpt-4o-mini-tts';$('testResult').textContent=s.has_llm_key?'Schlüssel gespeichert':'';$('settingsModal').classList.add('open')}
-function settingsPayload(){return{llm_base_url:$('sBase').value.trim(),llm_model:$('sModel').value.trim(),llm_api_key:$('sKey').value.trim(),ai_disclosure_enabled:$('sDisclosure').checked,voice_enabled:$('sVoiceEnabled').checked,voice_provider:$('sVoiceProvider').value.trim(),voice_model:$('sVoiceModel').value.trim()}}
-async function saveSettings(){try{await api('/api/settings',{method:'POST',body:JSON.stringify(settingsPayload())});toast('Einstellungen gespeichert');closeModal('settingsModal');await load()}catch(e){toast(e.message)}}
-async function testLlm(){$('testResult').textContent='Teste …';try{const r=await api('/api/settings/test',{method:'POST',body:JSON.stringify(settingsPayload())});$('testResult').textContent=r.ok?'✅ Verbindung funktioniert':'❌ '+(r.text||r.status)}catch(e){$('testResult').textContent='❌ '+e.message}}
-async function seedHot(){try{await api('/api/demo/hot',{method:'POST',body:'{}'});await load();toast('Demo-HOT-Lead erstellt');closeModal('settingsModal');setFilter('hot')}catch(e){toast(e.message)}}
-$('composer').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}});document.addEventListener('click',()=>{if(state.conversations.some(c=>c.state==='HOT'))beep()},{once:true});
-load();setInterval(()=>{if(!document.hidden)load()},2500);
-</script>
-</body>
+    <script>
+      const state = {
+        profiles: [],
+        conversations: [],
+        settings: {},
+        savedReplies: [],
+        selectedProfile: "",
+        currentChat: null,
+        editingProfile: null,
+        filter: "all",
+        alarmTimer: null,
+        qrPollToken: 0,
+      };
+      const $ = (id) => document.getElementById(id);
+      const esc = (s) =>
+        String(s ?? "").replace(
+          /[&<>"']/g,
+          (m) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[m],
+        );
+      async function api(path, opts = {}) {
+        const r = await fetch(path, {
+          headers: {
+            "content-type": "application/json",
+            ...(opts.headers || {}),
+          },
+          ...opts,
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+        return j;
+      }
+      function toast(msg) {
+        $("toast").textContent = msg;
+        $("toast").classList.add("show");
+        setTimeout(() => $("toast").classList.remove("show"), 2200);
+      }
+      function initials(n) {
+        return (
+          String(n || "?")
+            .trim()
+            .split(/\s+/)
+            .slice(0, 2)
+            .map((x) => x[0])
+            .join("")
+            .toUpperCase() || "?"
+        );
+      }
+      function profileBy(id) {
+        return state.profiles.find((p) => p.id === id);
+      }
+      function timeAgo(v) {
+        if (!v) return "";
+        const s = (Date.now() - new Date(v).getTime()) / 1000;
+        if (s < 60) return "jetzt";
+        if (s < 3600) return Math.floor(s / 60) + " Min.";
+        if (s < 86400) return Math.floor(s / 3600) + " Std.";
+        return new Date(v).toLocaleDateString("de-DE", {
+          day: "2-digit",
+          month: "2-digit",
+        });
+      }
+      async function load() {
+        try {
+          const d = await api("/api/bootstrap");
+          state.profiles = d.profiles || [];
+          state.conversations = d.conversations || [];
+          state.settings = d.settings || {};
+          state.savedReplies = Array.isArray(d.savedReplies)
+            ? d.savedReplies
+            : [];
+          render();
+          alarm();
+          if (state.currentChat) {
+            const refreshed = state.conversations.find(
+              (c) => c.id === state.currentChat.id,
+            );
+            if (refreshed) {
+              state.currentChat = refreshed;
+              renderChatHeader();
+            }
+          }
+        } catch (e) {
+          console.error(e);
+          toast("Server nicht erreichbar");
+        }
+      }
+      function render() {
+        renderProfileSelect();
+        renderProfileRows();
+        renderChatList();
+        renderQuickToolbox();
+        const hot = state.conversations.filter((c) => c.state === "HOT").length;
+        $("railHotBadge").textContent = hot;
+        $("railHotBadge").classList.toggle("show", hot > 0);
+      }
+      function waAccountLabel(p) {
+        const a = p?.connection?.account;
+        return a?.number ? `${a.number}${a.name ? " · " + a.name : ""}` : "";
+      }
+      function renderProfileSelect() {
+        const sel = $("profileSelect");
+        const value = state.selectedProfile;
+        sel.innerHTML =
+          '<option value="">Alle Profile</option>' +
+          state.profiles
+            .map(
+              (p) =>
+                `<option value="${p.id}">${esc(p.name)} · ${esc(waAccountLabel(p) || p.connection?.status || p.status || "offline")}</option>`,
+            )
+            .join("");
+        sel.value = value;
+        const p = profileBy(value);
+        $("profileDot").className =
+          "connDot " + (p?.connection?.status || p?.status || "");
+      }
+      function renderProfileRows() {
+        $("profileRows").innerHTML =
+          state.profiles
+            .map(
+              (p) =>
+                `<button class="profileManage" onclick="closeModal('profilesModal');editProfile('${p.id}')"><span class="avatar">${p.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : esc(initials(p.name))}</span><span><b>${esc(p.name)}</b><br><small style="color:var(--muted)">${esc(waAccountLabel(p) || p.desired_location || p.location || p.phone_label || "Nicht eingerichtet")} · ${esc(p.connection?.status || p.status || "offline")}</small></span><span>›</span></button>`,
+            )
+            .join("") || '<div class="emptyList">Noch keine Profile</div>';
+      }
+      function chooseProfile(v) {
+        state.selectedProfile = v;
+        renderProfileSelect();
+        renderChatList();
+      }
+      function setFilter(f) {
+        state.filter = f;
+        document
+          .querySelectorAll(".chip")
+          .forEach((x) => x.classList.remove("active"));
+        const map = {
+          all: "fAll",
+          unread: "fUnread",
+          hot: "fHot",
+          mine: "fMine",
+          ai: "fAi",
+        };
+        $(map[f])?.classList.add("active");
+        $("railChats").classList.toggle("active", f !== "hot");
+        $("railHot").classList.toggle("active", f === "hot");
+        renderChatList();
+      }
+      function mobileFilter(f, btn) {
+        setFilter(f);
+        document
+          .querySelectorAll(".mobileNav button")
+          .forEach((x) => x.classList.remove("active"));
+        btn.classList.add("active");
+      }
+      function filtered() {
+        const q = $("search").value.trim().toLowerCase();
+        return state.conversations
+          .filter((c) => {
+            if (c.state === "CLOSED") return false;
+            if (state.selectedProfile && c.profile_id !== state.selectedProfile)
+              return false;
+            if (state.filter === "unread" && !(c.unread_count > 0))
+              return false;
+            if (state.filter === "hot" && c.state !== "HOT") return false;
+            if (state.filter === "mine" && c.state !== "HUMAN_ACTIVE")
+              return false;
+            if (
+              state.filter === "ai" &&
+              !["NEW", "AI_ACTIVE", "AI_ERROR", "PAUSED"].includes(c.state)
+            )
+              return false;
+            if (
+              q &&
+              !`${c.contact_name || ""} ${c.wa_jid || ""} ${c.last_message_preview || ""}`
+                .toLowerCase()
+                .includes(q)
+            )
+              return false;
+            return true;
+          })
+          .sort(
+            (a, b) =>
+              new Date(b.last_message_at || 0) -
+              new Date(a.last_message_at || 0),
+          );
+      }
+      function renderChatList() {
+        const arr = filtered();
+        $("chatList").innerHTML =
+          arr
+            .map((c) => {
+              const p = profileBy(c.profile_id);
+              const hot = c.state === "HOT";
+              const label = hot
+                ? "HOT"
+                : c.state === "HUMAN_ACTIVE"
+                  ? "Meine"
+                  : "KI";
+              return `<button class="chatRow ${state.currentChat?.id === c.id ? "active" : ""}" onclick="openChat('${c.id}')"><div class="avatar">${esc(initials(c.contact_name || c.wa_jid))}</div><div class="rowMain"><div class="rowTop"><span class="rowName">${esc(c.contact_name || c.wa_jid)}</span><span class="rowTime">${esc(timeAgo(c.last_message_at))}</span></div><div class="rowBottom"><span class="preview">${esc(c.last_message_preview || "Keine Nachricht")}</span><span class="stateTag ${hot ? "hot" : ""}">${esc(label)}</span></div><div style="font-size:10px;color:#667781;margin-top:2px">${esc(p?.name || "Profil")}</div></div><div>${c.unread_count > 0 ? `<span class="unread">${c.unread_count}</span>` : ""}</div></button>`;
+            })
+            .join("") ||
+          '<div class="emptyList">Keine Chats in dieser Ansicht.</div>';
+      }
+      async function openChat(id) {
+        state.currentChat = state.conversations.find((c) => c.id === id);
+        if (!state.currentChat) return;
+        $("chatPlaceholder").style.display = "none";
+        $("chatView").classList.add("open");
+        $("chatPane").classList.add("mobileOpen");
+        renderChatHeader();
+        renderChatList();
+        renderQuickToolbox();
+        await loadMessages();
+      }
+      function renderChatHeader() {
+        const c = state.currentChat;
+        if (!c) return;
+        const p = profileBy(c.profile_id);
+        $("chatName").textContent = c.contact_name || c.wa_jid;
+        $("chatAvatar").textContent = initials(c.contact_name || c.wa_jid);
+        $("chatMeta").textContent =
+          (p?.name || "Profil") +
+          " · " +
+          (c.state === "HOT"
+            ? "HOT"
+            : c.state === "HUMAN_ACTIVE"
+              ? "von dir übernommen"
+              : "KI aktiv");
+        $("takeBtn").style.display =
+          c.state === "HOT" ? "inline-block" : "none";
+        $("returnBtn").style.display =
+          c.state === "HUMAN_ACTIVE" ? "inline-block" : "none";
+        $("hotStrip").classList.toggle("show", c.state === "HOT");
+        $("hotReason").textContent = c.hot_reason
+          ? "🔥 " + c.hot_reason
+          : "🔥 HOT Lead wartet auf Übernahme";
+        const canWrite = c.state === "HUMAN_ACTIVE";
+        $("composer").disabled = !canWrite;
+        $("composer").placeholder = canWrite
+          ? "Nachricht eingeben"
+          : "Chat zuerst übernehmen";
+        document.querySelector(".sendBtn").disabled = false;
+        $("mediaBtn").disabled = false;
+        $("locationBtn").disabled = false;
+        $("entryPhotoBtn").disabled = false;
+        renderQuickBar();
+      }
+      async function loadMessages() {
+        if (!state.currentChat) return;
+        const d = await api(
+          "/api/conversations/" + state.currentChat.id + "/messages",
+        );
+        $("messages").innerHTML = (d.data || [])
+          .map((m) =>
+            m.kind === "system"
+              ? `<div class="systemLine">${esc(m.text || "System")}</div>`
+              : `<div class="bubbleRow ${m.direction === "out" ? "out" : ""}"><div class="bubble">${m.kind === "image" && m.media_url ? `<img src="${esc(m.media_url)}" alt="Gesendetes Bild" style="max-width:280px;width:100%;border-radius:7px;display:block;margin-bottom:6px">` : ""}<div>${esc(m.text || (m.kind === "image" ? "" : "[" + m.kind + "]"))}</div><div class="bubbleMeta">${esc(m.sender)} · ${new Date(m.created_at).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}</div></div></div>`,
+          )
+          .join("");
+        $("messages").scrollTop = $("messages").scrollHeight;
+      }
+      function mobileBack() {
+        $("chatPane").classList.remove("mobileOpen");
+      }
+      async function takeover() {
+        if (!state.currentChat) return;
+        await api("/api/conversations/" + state.currentChat.id + "/takeover", {
+          method: "POST",
+          body: "{}",
+        });
+        toast("Chat übernommen");
+        await load();
+        renderChatHeader();
+      }
+      async function returnAi() {
+        if (!state.currentChat) return;
+        await api("/api/conversations/" + state.currentChat.id + "/return-ai", {
+          method: "POST",
+          body: "{}",
+        });
+        toast("Zur KI zurückgegeben");
+        await load();
+        renderChatHeader();
+      }
+      async function closeConversation() {
+        if (!state.currentChat || !confirm("Chat schließen?")) return;
+        await api("/api/conversations/" + state.currentChat.id + "/close", {
+          method: "POST",
+          body: "{}",
+        });
+        state.currentChat = null;
+        $("chatView").classList.remove("open");
+        $("chatPlaceholder").style.display = "grid";
+        $("chatPane").classList.remove("mobileOpen");
+        await load();
+      }
+      async function sendMessage() {
+        if (!state.currentChat) return;
+        if (state.currentChat.state !== "HUMAN_ACTIVE")
+          return toast("Chat zuerst übernehmen");
+        const t = $("composer").value.trim();
+        if (!t) return;
+        $("composer").value = "";
+        try {
+          await api("/api/conversations/" + state.currentChat.id + "/send", {
+            method: "POST",
+            body: JSON.stringify({ text: t }),
+          });
+          await loadMessages();
+          await load();
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      function alarm() {
+        const hot = state.conversations.filter((c) => c.state === "HOT").length;
+        $("hotToast").classList.toggle("show", hot > 0);
+        if (hot > 0 && !state.alarmTimer) {
+          beep();
+          state.alarmTimer = setInterval(beep, 3000);
+        }
+        if (!hot && state.alarmTimer) {
+          clearInterval(state.alarmTimer);
+          state.alarmTimer = null;
+        }
+      }
+      function beep() {
+        try {
+          const A = window.AudioContext || window.webkitAudioContext;
+          const a = new A(),
+            o = a.createOscillator(),
+            g = a.createGain();
+          o.frequency.value = 820;
+          g.gain.setValueAtTime(0.08, a.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + 0.18);
+          o.connect(g);
+          g.connect(a.destination);
+          o.start();
+          o.stop(a.currentTime + 0.18);
+        } catch {}
+      }
+      function openProfiles() {
+        $("profilesModal").classList.add("open");
+        renderProfileRows();
+      }
+      function closeModal(id) {
+        if (id === "qrModal") state.qrPollToken++;
+        $(id).classList.remove("open");
+      }
+      function newProfile() {
+        state.editingProfile = null;
+        fillProfile({
+          name: "",
+          phone_label: "",
+          location: "",
+          price_text: "",
+          hours_text: "",
+          bot_enabled: true,
+          system_prompt:
+            "Du bist ein kurzer, höflicher Vorqualifizierungsassistent. Prüfe Interesse und Ernsthaftigkeit. Sobald ein Lead klar terminbereit ist, markiere ihn als HOT und stoppe die Automatik.",
+          qualification_prompt:
+            "HOT bedeutet: konkretes echtes Interesse, Bereitschaft einen Termin zeitnah abzustimmen und keine offensichtliche Zeitverschwendung.",
+          hot_threshold: 0.8,
+          response_style: "kurz",
+          max_ai_turns: 8,
+          handoff_behavior: "stop",
+          voice_mode: "off",
+        });
+        $("profileModalTitle").textContent = "Neues Profil";
+        $("connectBox").style.display = "none";
+        $("profileModal").classList.add("open");
+      }
+      function editProfile(id) {
+        const p = profileBy(id);
+        if (!p) return;
+        state.editingProfile = id;
+        fillProfile(p);
+        $("profileModalTitle").textContent = p.name;
+        $("connectBox").style.display = "block";
+        const account = waAccountLabel(p),
+          status = p.connection?.status || p.status || "offline";
+        $("connectStatus").textContent = account
+          ? "Verbundenes WhatsApp: " + account + " · Status: " + status
+          : "Status: " + status;
+        $("profileModal").classList.add("open");
+      }
+      function clearPlaceSuggestions() {
+        const box = $("pShareSuggestions");
+        if (box) box.replaceChildren();
+      }
+      async function searchProfileAddress() {
+        const query = $("pShareSearch").value.trim();
+        clearPlaceSuggestions();
+        if (query.length < 3)
+          return toast("Bitte mindestens drei Zeichen eingeben");
+        try {
+          const result = await api(
+            "/api/places/autocomplete?q=" + encodeURIComponent(query),
+          );
+          const box = $("pShareSuggestions");
+          for (const suggestion of result.suggestions || []) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "placeSuggestion";
+            button.textContent = suggestion.text;
+            button.addEventListener("click", () =>
+              selectProfileAddress(suggestion.placeId),
+            );
+            box.appendChild(button);
+          }
+          if (!box.childElementCount) toast("Keine passende Adresse gefunden");
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      async function selectProfileAddress(placeId) {
+        try {
+          const result = await api(
+            "/api/places/details?placeId=" + encodeURIComponent(placeId),
+          );
+          const location = result.location || {};
+          $("pShareLabel").value = location.label || "";
+          $("pShareAddress").value = location.address || "";
+          $("pShareAddress").dataset.placeId = location.placeId || placeId;
+          $("pShareLat").value = String(location.latitude ?? "");
+          $("pShareLng").value = String(location.longitude ?? "");
+          $("pShareSearch").value = location.address || "";
+          clearPlaceSuggestions();
+          toast("Adresse übernommen");
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      function fillProfile(p) {
+        $("pName").value = p.name || "";
+        $("pPhone").value = p.phone_label || "";
+        $("pLocation").value = p.location || "";
+        $("pPrice").value = p.price_text || "";
+        $("pHours").value = p.hours_text || "";
+        $("pBot").checked = p.bot_enabled !== false;
+        $("pSystem").value = "Einheitliche Gesprächsregeln für alle Profile";
+        $("pQualify").value = "Konkretes Termininteresse mit Zeitwunsch";
+        $("pThreshold").value = "0.8 · zentral";
+        $("pTurns").value = "8 · zentral";
+        $("pStyle").value = "zentral";
+        $("pHandoff").value = p.handoff_behavior || "stop";
+        $("pVoice").value = "off";
+        $("pModel").value = state.settings.llm_model || "Globales Modell";
+        $("pTemp").value = "0.35 · zentral";
+        $("pVoiceName").value = "Zentrale Stimme";
+        $("pMedia").value = Array.isArray(p.media)
+          ? p.media.filter((x) => typeof x === "string").join("\n")
+          : "";
+        $("pAvatar").value = p.avatar_url || "";
+        $("pQuick").value = state.savedReplies.join("\n");
+        $("pDesiredLocation").value = p.desired_location || "";
+        const sl = p.share_location || {};
+        $("pShareLabel").value = sl.label || "";
+        $("pShareAddress").value = sl.address || "";
+        $("pShareAddress").dataset.placeId = sl.place_id || "";
+        $("pShareSearch").value = sl.address || "";
+        clearPlaceSuggestions();
+        $("pShareLat").value = Number.isFinite(Number(sl.latitude))
+          ? String(sl.latitude)
+          : "";
+        $("pShareLng").value = Number.isFinite(Number(sl.longitude))
+          ? String(sl.longitude)
+          : "";
+        const ep = p.entry_photos || {};
+        $("pDoorPhoto").value = ep.door_url || "";
+        $("pBellPhoto").value = ep.bell_url || "";
+      }
+      function profilePayload() {
+        return {
+          name: $("pName").value.trim(),
+          phone_label: $("pPhone").value.trim(),
+          location: $("pLocation").value.trim(),
+          price_text: $("pPrice").value.trim(),
+          hours_text: $("pHours").value.trim(),
+          bot_enabled: $("pBot").checked,
+          media: $("pMedia")
+            .value.split(/\n+/)
+            .map((x) => x.trim())
+            .filter(Boolean),
+          avatar_url: $("pAvatar").value.trim() || null,
+          desired_location: $("pDesiredLocation").value.trim(),
+          share_location: (() => {
+            const address = $("pShareAddress").value.trim();
+            if (!address) return null;
+            const latitude = Number($("pShareLat").value),
+              longitude = Number($("pShareLng").value);
+            if (!Number.isFinite(latitude) || !Number.isFinite(longitude))
+              return null;
+            return {
+              place_id: $("pShareAddress").dataset.placeId || null,
+              label: $("pShareLabel").value.trim() || null,
+              address,
+              latitude,
+              longitude,
+            };
+          })(),
+          entry_photos: {
+            door_url: $("pDoorPhoto").value.trim() || null,
+            bell_url: $("pBellPhoto").value.trim() || null,
+          },
+        };
+      }
+      async function saveProfile() {
+        const payload = profilePayload();
+        if (!payload.name) return toast("Name fehlt");
+        if ($("pShareAddress").value.trim() && !payload.share_location)
+          return toast("Für die Wahladresse fehlen gültige Koordinaten");
+        for (const [label, url] of [
+          ["Haustürfoto", payload.entry_photos?.door_url],
+          ["Klingelfoto", payload.entry_photos?.bell_url],
+        ]) {
+          if (url && !/^https:\/\//i.test(url))
+            return toast(label + " muss eine HTTPS-URL sein");
+        }
+        try {
+          if (state.editingProfile)
+            await api("/api/profiles/" + state.editingProfile, {
+              method: "PATCH",
+              body: JSON.stringify(payload),
+            });
+          else {
+            const p = await api("/api/profiles", {
+              method: "POST",
+              body: JSON.stringify(payload),
+            });
+            state.editingProfile = p.id;
+          }
+          closeModal("profileModal");
+          toast("Profil gespeichert");
+          await load();
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      async function cloneProfile() {
+        if (!state.editingProfile) return;
+        await api("/api/profiles/" + state.editingProfile + "/clone", {
+          method: "POST",
+          body: "{}",
+        });
+        toast("Profil kopiert");
+        closeModal("profileModal");
+        await load();
+      }
+      async function unlinkProfile() {
+        if (!state.editingProfile || !confirm("WhatsApp-Verknüpfung lösen?"))
+          return;
+        await api("/api/profiles/" + state.editingProfile + "/unlink", {
+          method: "POST",
+          body: "{}",
+        });
+        toast("Verknüpfung gelöst");
+        await load();
+        editProfile(state.editingProfile);
+      }
+      async function deleteProfile() {
+        if (
+          !state.editingProfile ||
+          !confirm(
+            "Profil wirklich löschen? Chats und gespeicherte Sitzungsdaten dieses Profils werden entfernt.",
+          )
+        )
+          return;
+        const id = state.editingProfile;
+        await api("/api/profiles/" + id, { method: "DELETE" });
+        state.editingProfile = null;
+        if (state.selectedProfile === id) state.selectedProfile = "";
+        closeModal("profileModal");
+        toast("Profil gelöscht");
+        await load();
+      }
+      async function connectProfile() {
+        if (!state.editingProfile) return;
+        const token = ++state.qrPollToken;
+        $("qrModal").classList.add("open");
+        $("qrImage").style.display = "none";
+        $("qrStatus").style.display = "block";
+        $("qrStatus").textContent = "QR wird erzeugt …";
+        try {
+          await api("/api/profiles/" + state.editingProfile + "/connect", {
+            method: "POST",
+            body: "{}",
+          });
+          pollQr(state.editingProfile, token);
+        } catch (e) {
+          $("qrStatus").textContent = e.message;
+        }
+      }
+      async function pollQr(id, token) {
+        for (let i = 0; i < 60; i++) {
+          if (token !== state.qrPollToken) return;
+          await new Promise((r) => setTimeout(r, 1500));
+          if (token !== state.qrPollToken) return;
+          try {
+            const c = await api("/api/profiles/" + id + "/connection");
+            if (c.status === "online") {
+              $("qrStatus").style.display = "block";
+              $("qrStatus").textContent = "✅ Verbunden";
+              $("qrImage").style.display = "none";
+              toast("WhatsApp verbunden");
+              await load();
+              return;
+            }
+            if (c.qr) {
+              $("qrImage").src = c.qr;
+              $("qrImage").style.display = "block";
+              $("qrStatus").style.display = "none";
+            }
+          } catch {}
+        }
+        if (token === state.qrPollToken) {
+          $("qrStatus").style.display = "block";
+          $("qrStatus").textContent = "QR abgelaufen. Bitte erneut starten.";
+        }
+      }
+      function openSettings() {
+        const s = state.settings;
+        $("sBase").value = s.llm_base_url || "https://api.openai.com";
+        $("sModel").value = s.llm_model || "gpt-5-mini";
+        $("sKey").value = "";
+        const envKey = s.llm_key_source === "environment";
+        $("sKey").disabled = envKey;
+        $("sKey").placeholder = envKey
+          ? "Railway-Secret aktiv"
+          : "gespeichert oder neu eintragen";
+        $("sDisclosure").checked = s.ai_disclosure_enabled !== false;
+        $("sVoiceEnabled").checked = !!s.voice_enabled;
+        $("sVoiceProvider").value = s.voice_provider || "same-api";
+        $("sVoiceModel").value = s.voice_model || "gpt-4o-mini-tts";
+        $("testResult").textContent = s.has_llm_key
+          ? envKey
+            ? "✅ Railway-Secret aktiv"
+            : "Schlüssel gespeichert"
+          : "";
+        if ($("pushStatus"))
+          $("pushStatus").textContent =
+            "Notification" in window && Notification.permission === "granted"
+              ? "✅ Browser-Benachrichtigungen erlaubt"
+              : "Notification" in window && Notification.permission === "denied"
+                ? "❌ Browser-Benachrichtigungen blockiert"
+                : "Browser-Benachrichtigungen noch nicht aktiviert.";
+        if ($("sTestProfile")) {
+          $("sTestProfile").innerHTML = state.profiles
+            .map(
+              (p) =>
+                '<option value="' +
+                esc(p.id) +
+                '">' +
+                esc(p.name) +
+                "</option>",
+            )
+            .join("");
+          if (state.selectedProfile)
+            $("sTestProfile").value = state.selectedProfile;
+        }
+        if ($("playgroundResult")) {
+          $("playgroundResult").style.display = "none";
+          $("playgroundResult").textContent = "";
+        }
+        $("settingsModal").classList.add("open");
+      }
+      function settingsPayload() {
+        return {
+          llm_base_url: $("sBase").value.trim(),
+          llm_model: $("sModel").value.trim(),
+          llm_api_key: $("sKey").value.trim(),
+          ai_disclosure_enabled: $("sDisclosure").checked,
+          voice_enabled: $("sVoiceEnabled").checked,
+          voice_provider: $("sVoiceProvider").value.trim(),
+          voice_model: $("sVoiceModel").value.trim(),
+        };
+      }
+      async function saveSettings() {
+        try {
+          await api("/api/settings", {
+            method: "POST",
+            body: JSON.stringify(settingsPayload()),
+          });
+          toast("Einstellungen gespeichert");
+          closeModal("settingsModal");
+          await load();
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      async function testLlm() {
+        $("testResult").textContent = "Teste …";
+        try {
+          const r = await api("/api/settings/test", {
+            method: "POST",
+            body: JSON.stringify(settingsPayload()),
+          });
+          $("testResult").textContent = r.ok
+            ? "✅ Verbindung funktioniert"
+            : "❌ " + (r.text || r.status);
+        } catch (e) {
+          $("testResult").textContent = "❌ " + e.message;
+        }
+      }
+      async function seedHot() {
+        try {
+          await api("/api/demo/hot", { method: "POST", body: "{}" });
+          await load();
+          toast("Demo-HOT-Lead erstellt");
+          closeModal("settingsModal");
+          setFilter("hot");
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      function availableReplies() {
+        return state.savedReplies.filter(
+          (x) => typeof x === "string" && x.trim(),
+        );
+      }
+      function renderQuickBar() {
+        const bar = $("quickBar");
+        const c = state.currentChat;
+        if (!bar || !c || c.state !== "HUMAN_ACTIVE") {
+          if (bar) {
+            bar.classList.remove("show");
+            bar.innerHTML = "";
+          }
+          return;
+        }
+        const replies = availableReplies();
+        bar.innerHTML = replies
+          .map(
+            (r, i) =>
+              '<button class="quickReply" onclick="sendQuickReply(' +
+              i +
+              ')">' +
+              esc(expandQuickTemplate(r)) +
+              "</button>",
+          )
+          .join("");
+        bar.classList.toggle("show", replies.length > 0);
+      }
+      async function sendQuickReply(i) {
+        const c = state.currentChat;
+        if (!c || c.state !== "HUMAN_ACTIVE")
+          return toast("Chat zuerst übernehmen");
+        const text = expandQuickTemplate(availableReplies()[i] || "").trim();
+        if (!text) return;
+        try {
+          await api("/api/conversations/" + c.id + "/send", {
+            method: "POST",
+            body: JSON.stringify({ text }),
+          });
+          await loadMessages(c.id);
+          await load();
+          toast("Schnellantwort gesendet");
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      function openEntryPhotoPicker() {
+        const c = state.currentChat;
+        if (!c || c.state !== "HUMAN_ACTIVE")
+          return toast("Chat zuerst übernehmen");
+        const p = profileBy(c.profile_id);
+        const ep = p?.entry_photos || {};
+        const options = [
+          ["door", "Haustür", ep.door_url, "🚪"],
+          ["bell", "Klingel", ep.bell_url, "🔔"],
+        ];
+        $("entryPhotoGrid").innerHTML = options
+          .map(([type, label, url, icon]) => {
+            const valid = typeof url === "string" && /^https:\/\//i.test(url);
+            return (
+              '<button class="entryPhotoBtn" ' +
+              (valid ? "" : "disabled") +
+              " onclick=\"sendEntryPhoto('" +
+              type +
+              "')\">" +
+              (valid
+                ? '<img src="' + esc(url) + '" alt="' + esc(label) + '">'
+                : "") +
+              "<b>" +
+              icon +
+              " " +
+              esc(label) +
+              '</b><div style="margin-top:4px;color:var(--muted);font-size:12px">' +
+              (valid ? "Foto senden" : "Noch kein Foto hinterlegt") +
+              "</div></button>"
+            );
+          })
+          .join("");
+        $("entryPhotoModal").classList.add("open");
+      }
+      async function sendEntryPhoto(type) {
+        const c = state.currentChat;
+        if (!c || c.state !== "HUMAN_ACTIVE")
+          return toast("Chat zuerst übernehmen");
+        try {
+          await api("/api/conversations/" + c.id + "/send-entry-photo", {
+            method: "POST",
+            body: JSON.stringify({ type }),
+          });
+          closeModal("entryPhotoModal");
+          await loadMessages(c.id);
+          await load();
+          toast(
+            type === "door" ? "Haustürfoto gesendet" : "Klingelfoto gesendet",
+          );
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      async function sendProfileLocation() {
+        const c = state.currentChat;
+        if (!c || c.state !== "HUMAN_ACTIVE")
+          return toast("Chat zuerst übernehmen");
+        const p = profileBy(c.profile_id);
+        if (!p?.share_location?.address)
+          return toast("Für dieses Profil ist keine Wahladresse hinterlegt");
+        try {
+          await api("/api/conversations/" + c.id + "/send-location", {
+            method: "POST",
+            body: "{}",
+          });
+          await loadMessages(c.id);
+          await load();
+          toast("Standort gesendet");
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      function openMediaPicker() {
+        const c = state.currentChat;
+        if (!c || c.state !== "HUMAN_ACTIVE")
+          return toast("Chat zuerst übernehmen");
+        const p = profileBy(c.profile_id);
+        const media = Array.isArray(p?.media)
+          ? p.media.filter(
+              (x) => typeof x === "string" && /^https:\/\//i.test(x),
+            )
+          : [];
+        const grid = $("mediaGrid");
+        grid.innerHTML =
+          media
+            .map(
+              (url, i) =>
+                '<button class="mediaTile" onclick="sendProfileMedia(' +
+                i +
+                ')"><img src="' +
+                esc(url) +
+                '" alt="Bild ' +
+                (i + 1) +
+                '"><div style="margin-top:6px">Senden</div></button>',
+            )
+            .join("") ||
+          '<div class="emptyList">Für dieses Profil sind noch keine Bilder hinterlegt.</div>';
+        $("mediaModal").classList.add("open");
+      }
+      async function sendProfileMedia(i) {
+        const c = state.currentChat;
+        if (!c || c.state !== "HUMAN_ACTIVE") return;
+        const p = profileBy(c.profile_id);
+        const media = Array.isArray(p?.media)
+          ? p.media.filter(
+              (x) => typeof x === "string" && /^https:\/\//i.test(x),
+            )
+          : [];
+        const url = media[i];
+        if (!url) return;
+        try {
+          await api("/api/conversations/" + c.id + "/send-media", {
+            method: "POST",
+            body: JSON.stringify({ url }),
+          });
+          closeModal("mediaModal");
+          await loadMessages(c.id);
+          await load();
+          toast("Bild gesendet");
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      async function runPlayground() {
+        const profile_id = $("sTestProfile").value;
+        const text = $("sTestMessage").value.trim();
+        const out = $("playgroundResult");
+        if (!profile_id || !text) {
+          out.style.display = "block";
+          out.textContent = "Profil und Testnachricht eingeben.";
+          return;
+        }
+        out.style.display = "block";
+        out.textContent = "Teste echte KI …";
+        try {
+          const r = await api("/api/test/qualify", {
+            method: "POST",
+            body: JSON.stringify({ profile_id, text }),
+          });
+          out.textContent =
+            (r.hot ? "🔥 HOT" : "🤖 KI AKTIV") +
+            " · Score " +
+            Math.round(Number(r.score || 0) * 100) +
+            "%\n" +
+            (r.reason ? "Grund: " + r.reason + "\n" : "") +
+            "Antwort: " +
+            (r.reply || "(keine Antwort – Übergabe)");
+        } catch (e) {
+          out.textContent = "❌ " + e.message;
+        }
+      }
+      function pushKeyBytes(key) {
+        const pad = "=".repeat((4 - (key.length % 4)) % 4);
+        const raw = atob((key + pad).replace(/-/g, "+").replace(/_/g, "/"));
+        return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+      }
+      async function activatePush() {
+        const status = $("pushStatus");
+        if (
+          !("serviceWorker" in navigator) ||
+          !("PushManager" in window) ||
+          !("Notification" in window)
+        ) {
+          if (status)
+            status.textContent = "❌ Dieser Browser unterstützt Push nicht.";
+          return;
+        }
+        try {
+          const permission = await Notification.requestPermission();
+          if (permission !== "granted") {
+            if (status)
+              status.textContent =
+                permission === "denied"
+                  ? "❌ Benachrichtigungen im Browser blockiert"
+                  : "Benachrichtigungen nicht erlaubt.";
+            return;
+          }
+          const reg = await navigator.serviceWorker.register("/sw.js");
+          await navigator.serviceWorker.ready;
+          const key = await api("/api/push/key");
+          let sub = await reg.pushManager.getSubscription();
+          if (!sub)
+            sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: pushKeyBytes(key.publicKey),
+            });
+          await api("/api/push/subscribe", {
+            method: "POST",
+            body: JSON.stringify({
+              subscription: sub.toJSON ? sub.toJSON() : sub,
+            }),
+          });
+          if (status) status.textContent = "✅ HOT-Benachrichtigungen aktiv";
+          toast("HOT-Benachrichtigungen aktiviert");
+        } catch (e) {
+          if (status) status.textContent = "❌ " + e.message;
+          toast("Push konnte nicht aktiviert werden");
+        }
+      }
+      $("composer").addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+      document.addEventListener(
+        "click",
+        () => {
+          if (state.conversations.some((c) => c.state === "HOT")) beep();
+        },
+        { once: true },
+      );
+      load();
+      setInterval(() => {
+        if (!document.hidden) load();
+      }, 2500);
+
+      function syncMobileHotUi() {
+        const view = $("chatView");
+        const c = state.currentChat;
+        if (!view) return;
+        view.classList.toggle("isHot", c?.state === "HOT");
+      }
+      const __renderChatHeaderMobile = renderChatHeader;
+      renderChatHeader = () => {
+        __renderChatHeaderMobile();
+        syncMobileHotUi();
+      };
+      syncMobileHotUi();
+      let activeQuickTool = "replies";
+      let quickRecorder = null;
+      let quickRecorderStream = null;
+      let quickRecordedBlob = null;
+      let quickRecordedUrl = null;
+      let quickRecordingTimer = null;
+      const QUICK_AUDIO_MAX_BYTES = 4 * 1024 * 1024;
+
+      function quickChatProfile() {
+        const c = state.currentChat;
+        return c ? profileBy(c.profile_id) : null;
+      }
+      function quickCanSend() {
+        return Boolean(
+          state.currentChat && state.currentChat.state === "HUMAN_ACTIVE",
+        );
+      }
+      function expandQuickTemplate(value) {
+        const c = state.currentChat;
+        return String(value || "").replaceAll(
+          "{{name}}",
+          c?.contact_name || "",
+        );
+      }
+      function selectQuickTool(name) {
+        activeQuickTool = name;
+        document
+          .querySelectorAll("[data-tool-tab]")
+          .forEach((x) =>
+            x.classList.toggle("active", x.dataset.toolTab === name),
+          );
+        document
+          .querySelectorAll("[data-tool-panel]")
+          .forEach((x) =>
+            x.classList.toggle("active", x.dataset.toolPanel === name),
+          );
+      }
+      function toggleQuickToolbox() {
+        $("quickToolbox")?.classList.toggle("open");
+        $("toolBackdrop")?.classList.toggle(
+          "open",
+          $("quickToolbox")?.classList.contains("open"),
+        );
+      }
+      function closeQuickToolbox() {
+        $("quickToolbox")?.classList.remove("open");
+        $("toolBackdrop")?.classList.remove("open");
+      }
+      function quickEmpty(text) {
+        const d = document.createElement("div");
+        d.className = "toolEmpty";
+        d.textContent = text;
+        return d;
+      }
+      function renderToolReplies() {
+        const root = $("toolReplies");
+        if (!root) return;
+        root.replaceChildren();
+        const q = String($("toolReplySearch")?.value || "")
+          .trim()
+          .toLowerCase();
+        const replies = availableReplies().filter(
+          (x) => !q || x.toLowerCase().includes(q),
+        );
+        if (!replies.length) {
+          root.append(
+            quickEmpty(
+              state.currentChat ? "Keine passende Vorlage." : "Chat auswählen.",
+            ),
+          );
+          return;
+        }
+        replies.forEach((raw) => {
+          const text = expandQuickTemplate(raw);
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "toolCard";
+          const strong = document.createElement("strong");
+          strong.textContent = "Antwortvorlage";
+          const body = document.createElement("span");
+          body.textContent = text;
+          const meta = document.createElement("span");
+          meta.className = "toolMeta";
+          const left = document.createElement("span");
+          left.textContent = "Zentral";
+          const right = document.createElement("span");
+          right.textContent = "in Entwurf";
+          meta.append(left, right);
+          b.append(strong, body, meta);
+          b.onclick = () => {
+            if (!state.currentChat) return toast("Chat auswählen");
+            $("composer").value = text;
+            $("composer").focus();
+          };
+          root.append(b);
+        });
+      }
+      function collectToolPhotos() {
+        const p = quickChatProfile();
+        const out = [];
+        (Array.isArray(p?.media) ? p.media : []).forEach((url, i) => {
+          if (typeof url === "string" && /^https:\/\//i.test(url))
+            out.push({
+              kind: "media",
+              label: "Profilbild " + (i + 1),
+              url,
+              index: i,
+            });
+        });
+        const ep = p?.entry_photos || {};
+        if (typeof ep.door_url === "string" && /^https:\/\//i.test(ep.door_url))
+          out.push({
+            kind: "entry",
+            type: "door",
+            label: "Haustür",
+            url: ep.door_url,
+          });
+        if (typeof ep.bell_url === "string" && /^https:\/\//i.test(ep.bell_url))
+          out.push({
+            kind: "entry",
+            type: "bell",
+            label: "Klingel",
+            url: ep.bell_url,
+          });
+        return out;
+      }
+      function renderToolPhotos() {
+        const root = $("toolPhotos");
+        if (!root) return;
+        root.replaceChildren();
+        const photos = collectToolPhotos();
+        if (!photos.length) {
+          root.append(
+            quickEmpty(
+              state.currentChat
+                ? "Keine Profilfotos hinterlegt."
+                : "Chat auswählen.",
+            ),
+          );
+          return;
+        }
+        photos.forEach((item, i) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "toolPhoto";
+          const img = document.createElement("img");
+          img.src = item.url;
+          img.alt = item.label;
+          img.loading = "lazy";
+          const label = document.createElement("strong");
+          label.textContent = item.label;
+          const hint = document.createElement("small");
+          hint.textContent = "Vorschau · Klick zum Bestätigen";
+          b.append(img, label, hint);
+          b.onclick = () => sendToolPhoto(i);
+          root.append(b);
+        });
+      }
+      async function sendToolPhoto(i) {
+        if (!quickCanSend()) return toast("Chat zuerst übernehmen");
+        const item = collectToolPhotos()[i];
+        if (!item) return;
+        if (!confirm(item.label + " wirklich senden?")) return;
+        const c = state.currentChat;
+        try {
+          if (item.kind === "entry")
+            await api("/api/conversations/" + c.id + "/send-entry-photo", {
+              method: "POST",
+              body: JSON.stringify({ type: item.type }),
+            });
+          else
+            await api("/api/conversations/" + c.id + "/send-media", {
+              method: "POST",
+              body: JSON.stringify({ url: item.url }),
+            });
+          await loadMessages(c.id);
+          await load();
+          toast(item.label + " gesendet");
+          closeQuickToolbox();
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      function renderToolLocations() {
+        const root = $("toolLocations");
+        if (!root) return;
+        root.replaceChildren();
+        const p = quickChatProfile(),
+          loc = p?.share_location;
+        if (!loc?.address) {
+          root.append(
+            quickEmpty(
+              state.currentChat
+                ? "Kein GPS-Standort im Profil hinterlegt."
+                : "Chat auswählen.",
+            ),
+          );
+          return;
+        }
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "toolCard";
+        const strong = document.createElement("strong");
+        strong.textContent = "📍 " + (loc.label || p.name || "Standort");
+        const body = document.createElement("span");
+        body.textContent = loc.address;
+        const meta = document.createElement("span");
+        meta.className = "toolMeta";
+        const left = document.createElement("span");
+        left.textContent =
+          Number(loc.latitude).toFixed(5) +
+          ", " +
+          Number(loc.longitude).toFixed(5);
+        const right = document.createElement("span");
+        right.textContent = "WhatsApp GPS";
+        meta.append(left, right);
+        b.append(strong, body, meta);
+        b.onclick = sendToolLocation;
+        root.append(b);
+      }
+      async function sendToolLocation() {
+        if (!quickCanSend()) return toast("Chat zuerst übernehmen");
+        const p = quickChatProfile(),
+          loc = p?.share_location;
+        if (!loc?.address) return toast("Kein GPS-Standort hinterlegt");
+        if (!confirm((loc.label || p.name || "Standort") + " wirklich senden?"))
+          return;
+        const c = state.currentChat;
+        try {
+          await api("/api/conversations/" + c.id + "/send-location", {
+            method: "POST",
+            body: "{}",
+          });
+          await loadMessages(c.id);
+          await load();
+          toast("Standort gesendet");
+          closeQuickToolbox();
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      function renderToolVoicePresets() {
+        const root = $("toolVoicePresets");
+        if (!root) return;
+        root.replaceChildren();
+        const replies = availableReplies();
+        if (!replies.length) {
+          root.append(
+            quickEmpty(
+              state.currentChat
+                ? "Keine Vorlagen vorhanden."
+                : "Chat auswählen.",
+            ),
+          );
+          return;
+        }
+        replies.forEach((raw, i) => {
+          const text = expandQuickTemplate(raw);
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "toolCard";
+          const strong = document.createElement("strong");
+          strong.textContent = "🎙 Sprachvorlage " + (i + 1);
+          const body = document.createElement("span");
+          body.textContent = text;
+          const meta = document.createElement("span");
+          meta.className = "toolMeta";
+          const left = document.createElement("span");
+          left.textContent = "TTS";
+          const right = document.createElement("span");
+          right.textContent = "bewusst senden";
+          meta.append(left, right);
+          b.append(strong, body, meta);
+          b.onclick = () => sendPresetVoice(text);
+          root.append(b);
+        });
+      }
+      async function sendPresetVoice(text) {
+        if (!quickCanSend()) return toast("Chat zuerst übernehmen");
+        if (!confirm("Diese Sprachvorlage senden?")) return;
+        await sendTtsText(text);
+      }
+      async function sendTtsText(text) {
+        const c = state.currentChat;
+        if (!c) return;
+        try {
+          await api("/api/conversations/" + c.id + "/send-tts", {
+            method: "POST",
+            body: JSON.stringify({ text }),
+          });
+          await loadMessages(c.id);
+          await load();
+          toast("Sprachnachricht gesendet");
+          closeQuickToolbox();
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      async function sendToolTts() {
+        const text = String($("toolTtsText")?.value || "").trim();
+        if (!text) return toast("Text fehlt");
+        if (!quickCanSend()) return toast("Chat zuerst übernehmen");
+        if (!confirm("Text als Sprachnachricht senden?")) return;
+        await sendTtsText(text);
+        if ($("toolTtsText")) $("toolTtsText").value = "";
+      }
+      function preferredRecorderMime() {
+        const options = [
+          "audio/webm;codecs=opus",
+          "audio/ogg;codecs=opus",
+          "audio/mp4",
+          "audio/webm",
+        ];
+        return (
+          options.find(
+            (x) =>
+              typeof MediaRecorder !== "undefined" &&
+              MediaRecorder.isTypeSupported?.(x),
+          ) || ""
+        );
+      }
+      async function startVoiceRecording() {
+        if (!quickCanSend()) return toast("Chat zuerst übernehmen");
+        if (
+          !navigator.mediaDevices?.getUserMedia ||
+          typeof MediaRecorder === "undefined"
+        )
+          return toast(
+            "Mikrofonaufnahme wird von diesem Browser nicht unterstützt",
+          );
+        discardVoiceRecording();
+        try {
+          quickRecorderStream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+          });
+          const chunks = [];
+          const mime = preferredRecorderMime();
+          quickRecorder = new MediaRecorder(
+            quickRecorderStream,
+            mime ? { mimeType: mime } : undefined,
+          );
+          quickRecorder.ondataavailable = (e) => {
+            if (e.data.size) chunks.push(e.data);
+          };
+          quickRecorder.onstop = () => {
+            quickRecorderStream?.getTracks().forEach((t) => t.stop());
+            quickRecorderStream = null;
+            quickRecordedBlob = new Blob(chunks, {
+              type: quickRecorder?.mimeType || mime || "audio/webm",
+            });
+            if (quickRecordedBlob.size > QUICK_AUDIO_MAX_BYTES) {
+              discardVoiceRecording();
+              toast("Aufnahme ist größer als 4 MB");
+              return;
+            }
+            quickRecordedUrl = URL.createObjectURL(quickRecordedBlob);
+            $("voicePreview").src = quickRecordedUrl;
+            $("voicePreview").hidden = false;
+            $("sendRecordingButton").disabled = false;
+            $("discardRecordingButton").disabled = false;
+            $("recordButton").disabled = false;
+            $("stopRecordButton").disabled = true;
+            $("recordState").classList.remove("recording");
+            $("recordState").textContent =
+              "Aufnahme bereit · " +
+              Math.ceil(quickRecordedBlob.size / 1024) +
+              " KB";
+          };
+          quickRecorder.start(250);
+          $("recordButton").disabled = true;
+          $("stopRecordButton").disabled = false;
+          $("recordState").classList.add("recording");
+          $("recordState").textContent = "● Aufnahme läuft …";
+          quickRecordingTimer = setTimeout(stopVoiceRecording, 90000);
+        } catch (e) {
+          $("recordState").textContent = "Mikrofon nicht verfügbar";
+          toast(e.message);
+        }
+      }
+      function stopVoiceRecording() {
+        if (quickRecordingTimer) {
+          clearTimeout(quickRecordingTimer);
+          quickRecordingTimer = null;
+        }
+        if (quickRecorder?.state === "recording") quickRecorder.stop();
+      }
+      function discardVoiceRecording() {
+        if (quickRecordingTimer) {
+          clearTimeout(quickRecordingTimer);
+          quickRecordingTimer = null;
+        }
+        if (quickRecorder?.state === "recording") quickRecorder.stop();
+        quickRecorderStream?.getTracks().forEach((t) => t.stop());
+        quickRecorderStream = null;
+        if (quickRecordedUrl) URL.revokeObjectURL(quickRecordedUrl);
+        quickRecordedUrl = null;
+        quickRecordedBlob = null;
+        if ($("voicePreview")) {
+          $("voicePreview").pause();
+          $("voicePreview").removeAttribute("src");
+          $("voicePreview").load();
+          $("voicePreview").hidden = true;
+        }
+        $("sendRecordingButton") && ($("sendRecordingButton").disabled = true);
+        $("discardRecordingButton") &&
+          ($("discardRecordingButton").disabled = true);
+        $("stopRecordButton") && ($("stopRecordButton").disabled = true);
+        $("recordButton") && ($("recordButton").disabled = false);
+        if ($("recordState")) {
+          $("recordState").classList.remove("recording");
+          $("recordState").textContent = "Bereit zur Aufnahme";
+        }
+      }
+      function blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onerror = () =>
+            reject(r.error || new Error("Datei konnte nicht gelesen werden"));
+          r.onload = () => resolve(String(r.result || "").split(",")[1] || "");
+          r.readAsDataURL(blob);
+        });
+      }
+      async function sendVoiceRecording() {
+        if (!quickRecordedBlob) return toast("Keine Aufnahme vorhanden");
+        if (!quickCanSend()) return toast("Chat zuerst übernehmen");
+        if (!confirm("Aufgenommene Sprachnachricht senden?")) return;
+        const c = state.currentChat;
+        try {
+          const audio_base64 = await blobToBase64(quickRecordedBlob);
+          await api("/api/conversations/" + c.id + "/send-voice-upload", {
+            method: "POST",
+            body: JSON.stringify({
+              audio_base64,
+              mime: quickRecordedBlob.type || "audio/webm",
+            }),
+          });
+          discardVoiceRecording();
+          await loadMessages(c.id);
+          await load();
+          toast("Sprachnachricht gesendet");
+          closeQuickToolbox();
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      function renderQuickToolbox() {
+        const ctx = $("toolboxContext");
+        if (ctx) {
+          const c = state.currentChat,
+            p = quickChatProfile();
+          ctx.textContent = c
+            ? (c.contact_name || c.wa_jid) + " · " + (p?.name || "Profil")
+            : "Chat auswählen";
+        }
+        renderToolReplies();
+        renderToolPhotos();
+        renderToolLocations();
+        renderToolVoicePresets();
+        selectQuickTool(activeQuickTool);
+      }
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeQuickToolbox();
+      });
+    </script>
+  </body>
 </html>

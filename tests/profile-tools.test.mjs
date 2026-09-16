@@ -21,9 +21,10 @@ test('profile quick replies and media are wired to human chat controls', () => {
   assert.match(html, /\/send-media/);
 });
 
-test('profile payload persists avatar quick replies and media', () => {
+test('profile payload persists avatar and media while replies remain central', () => {
   assert.match(html, /avatar_url:/);
-  assert.match(html, /quick_replies:/);
+  assert.match(html, /state\.savedReplies/);
+  assert.doesNotMatch(html, /quick_replies:\s*\$\("pQuick"\)/);
   assert.match(html, /media:/);
   assert.match(store, /quick_replies\?: string\[\]/);
 });

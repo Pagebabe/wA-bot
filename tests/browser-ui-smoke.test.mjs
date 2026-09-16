@@ -12,6 +12,7 @@ let profiles;
 let conversations;
 let messages;
 let settings;
+const savedReplies = ['Hallo {{name}}', 'Welcher Termin passt dir?'];
 
 function resetState() {
   profiles = [{
@@ -43,7 +44,9 @@ async function startMock() {
     const url = new URL(req.url, 'http://127.0.0.1');
     const path = url.pathname;
     if (path === '/' && req.method === 'GET') { res.writeHead(200, {'content-type':'text/html; charset=utf-8'}); return res.end(html); }
-    if (path === '/api/bootstrap' && req.method === 'GET') return json(res, 200, { profiles, conversations, settings });
+    if (path === '/api/bootstrap' && req.method === 'GET') return json(res, 200, { profiles, conversations, settings, savedReplies });
+    if (path === '/api/places/autocomplete' && req.method === 'GET') return json(res, 200, { suggestions: [{ placeId: 'place-1', text: 'Teststraße 1, 50667 Köln' }] });
+    if (path === '/api/places/details' && req.method === 'GET') return json(res, 200, { location: { placeId: 'place-1', label: 'Studio Köln', address: 'Teststraße 1, 50667 Köln', latitude: 50.94, longitude: 6.96 } });
     if (path === '/api/settings/test' && req.method === 'POST') return json(res, 200, { ok:true, status:200, text:'OK' });
     if (path === '/api/settings' && req.method === 'POST') { const b=await bodyJson(req); settings={...settings,...b,has_llm_key:true}; return json(res,200,{ok:true,settings}); }
     if (path === '/api/demo/hot' && req.method === 'POST') { const id=`c-demo-${convSeq++}`; conversations.unshift({id,profile_id:'p1',wa_jid:`demo${convSeq}@s.whatsapp.net`,contact_name:'Demo Lead',state:'HOT',hot_score:.95,hot_reason:'Demo HOT',ai_turns:1,unread_count:1,last_message_preview:'Termin heute?',last_message_at:now()}); messages[id]=[{id:`m-${id}`,conversation_id:id,direction:'in',sender:'lead',kind:'text',text:'Termin heute?',created_at:now()}]; return json(res,200,{ok:true,id}); }
@@ -70,6 +73,7 @@ async function startMock() {
       if(actionMatch[2]==='send'){if(c.state!=='HUMAN_ACTIVE')return json(res,409,{error:'Chat muss zuerst übernommen werden'});const b=await bodyJson(req);(messages[c.id]??=[]).push({id:`m${Date.now()}`,conversation_id:c.id,direction:'out',sender:'human',kind:'text',text:b.text,created_at:now()});c.last_message_preview=b.text;}
       return json(res,200,actionMatch[2]==='send'?{ok:true}:c);
     }
+    if (path === '/favicon.ico' || path === '/.well-known/appspecific/com.chrome.devtools.json') { res.writeHead(204); return res.end(); }
     json(res,404,{error:'not_found'});
   });
   await new Promise(resolve => server.listen(0,'127.0.0.1',resolve));
@@ -116,8 +120,7 @@ for (const cfg of [
       await page.locator('#fMine').click(); await page.locator('#fAi').click(); await page.locator('#fAll').click();
       await page.locator('#search').fill('Anna'); assert.equal(await page.locator('.chatRow').count(),1); await page.locator('#search').fill('');
       await page.locator('#profileSelect').selectOption('p1'); assert.equal(await page.locator('#profileSelect').inputValue(),'p1'); await page.locator('#profileSelect').selectOption('');
-      await page.getByTitle('Einstellungen').first().click(); await expectVisible(page,'#settingsModal'); await page.locator('#settingsModal .modalHead button').click();
-      await page.getByTitle('Profile verwalten').click(); await expectVisible(page,'#profilesModal'); await page.locator('#profilesModal .modalHead button').click();
+      if(cfg.name==='desktop'){await page.getByTitle('Einstellungen').first().click();await expectVisible(page,'#settingsModal');await page.locator('#settingsModal .modalHead button').click();await page.getByTitle('Profile verwalten').click();await expectVisible(page,'#profilesModal');await page.locator('#profilesModal .modalHead button').click();}else{const nav=page.locator('.mobileNav');await nav.getByText('Setup',{exact:false}).click();await expectVisible(page,'#settingsModal');await page.locator('#settingsModal .modalHead button').click();await nav.getByText('Profile',{exact:false}).click();await expectVisible(page,'#profilesModal');await page.locator('#profilesModal .modalHead button').click();}
       await noRuntimeErrors(ctx);
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth); assert.ok(overflow<=1,`horizontal overflow ${overflow}px`);
     } finally { await browser.close(); await new Promise(r=>mock.server.close(r)); }
@@ -128,11 +131,13 @@ test('real browser: profile create/edit/clone/QR/unlink/delete buttons', async (
   const mock=await startMock(); const ctx=await launchPage(mock.base,{width:1440,height:900}); const {page,browser}=ctx;
   try {
     await page.getByTitle('Profil hinzufügen').click(); await expectVisible(page,'#profileModal');
-    await page.locator('#pName').fill('Smoke Profil'); await page.locator('#pLocation').fill('Bonn'); await page.locator('#pModel').fill('override-model'); await page.locator('#pTemp').fill('0.4'); await page.locator('#pVoiceName').fill('alloy'); await page.locator('#pMedia').fill('https://example.com/a.jpg');
+    await page.locator('#pName').fill('Smoke Profil'); await page.locator('#pLocation').fill('Bonn'); await page.locator('#pMedia').fill('https://example.com/a.jpg');
+    assert.equal(await page.locator('#pModel').getAttribute('readonly'), '');
+    assert.equal(await page.locator('#pTemp').getAttribute('readonly'), '');
     await page.getByRole('button',{name:'Speichern'}).click(); await page.waitForTimeout(80);
-    await page.getByTitle('Profile verwalten').click(); await page.getByText('Smoke Profil',{exact:false}).click(); await expectVisible(page,'#profileModal');
+    await page.getByTitle('Profile verwalten').click(); await page.locator('#profileRows button').filter({hasText:'Smoke Profil'}).first().click(); await expectVisible(page,'#profileModal');
     await page.getByRole('button',{name:'Profil kopieren'}).click(); await page.waitForTimeout(80);
-    await page.getByTitle('Profile verwalten').click(); await page.getByText('Smoke Profil',{exact:false}).first().click();
+    await page.getByTitle('Profile verwalten').click(); await page.locator('#profileRows button').filter({hasText:'Smoke Profil'}).nth(0).click();
     await page.getByRole('button',{name:'QR koppeln'}).click(); await expectVisible(page,'#qrModal'); await page.waitForTimeout(1700); await expectVisible(page,'#qrImage'); await page.locator('#qrModal .modalHead button').click();
     await page.getByRole('button',{name:'Verknüpfung lösen'}).click(); await page.waitForTimeout(80);
     await page.getByRole('button',{name:'Profil löschen'}).click(); await page.waitForTimeout(80); assert.equal(await page.locator('#profileModal').isVisible(),false);
@@ -158,7 +163,26 @@ test('real browser: settings test/save and demo-HOT', async () => {
   try {
     await page.getByTitle('Einstellungen').first().click(); await page.getByRole('button',{name:'Verbindung testen'}).click(); await page.waitForTimeout(60); assert.match(await page.locator('#testResult').textContent(),/Verbindung funktioniert/);
     await page.locator('#sDisclosure').click(); await page.getByRole('button',{name:'Speichern'}).click(); await page.waitForTimeout(60); assert.equal(await page.locator('#settingsModal').isVisible(),false);
-    await page.getByTitle('Einstellungen').first().click(); await page.getByRole('button',{name:/Demo-HOT-Lead/}).click(); await page.waitForTimeout(80); assert.equal(await page.locator('#fHot').evaluate(e=>e.classList.contains('active')),true); assert.ok(await page.locator('.chatRow').count()>=2);
+    await page.getByTitle('Einstellungen').first().click(); await page.getByRole('button',{name:/Demo-HOT/}).click(); await page.waitForTimeout(80); assert.equal(await page.locator('#fHot').evaluate(e=>e.classList.contains('active')),true); assert.ok(await page.locator('.chatRow').count()>=2);
+    await noRuntimeErrors(ctx);
+  } finally { await browser.close(); await new Promise(r=>mock.server.close(r)); }
+});
+
+test('real browser: Google address selection stores verified coordinates', async () => {
+  const mock=await startMock(); const ctx=await launchPage(mock.base,{width:1440,height:900}); const {page,browser}=ctx;
+  try {
+    await page.getByTitle('Profil hinzufügen').click();
+    await page.locator('#pName').fill('Adressprofil');
+    await page.locator('#pShareSearch').fill('Teststraße Köln');
+    await page.getByRole('button',{name:'Suchen',exact:true}).click();
+    await page.getByRole('button',{name:'Teststraße 1, 50667 Köln'}).click();
+    await page.waitForFunction(() => document.querySelector('#pShareAddress')?.value === 'Teststraße 1, 50667 Köln');
+    assert.equal(await page.locator('#pShareAddress').inputValue(),'Teststraße 1, 50667 Köln');
+    assert.equal(await page.locator('#pShareLat').inputValue(),'50.94');
+    assert.equal(await page.locator('#pShareLng').inputValue(),'6.96');
+    await page.getByRole('button',{name:'Speichern'}).click(); await page.waitForTimeout(80);
+    const created=profiles.find(p=>p.name==='Adressprofil');
+    assert.deepEqual(created.share_location,{place_id:'place-1',label:'Studio Köln',address:'Teststraße 1, 50667 Köln',latitude:50.94,longitude:6.96});
     await noRuntimeErrors(ctx);
   } finally { await browser.close(); await new Promise(r=>mock.server.close(r)); }
 });

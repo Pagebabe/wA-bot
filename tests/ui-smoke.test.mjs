@@ -62,23 +62,27 @@ test('profile configuration exposes the shipped backend options', () => {
   for (const id of ['pName','pLocation','pPrice','pHours','pBot','pSystem','pQualify','pThreshold','pTurns','pStyle','pHandoff','pVoice','pModel','pTemp','pVoiceName','pMedia']) {
     assert.match(html, new RegExp(`id="${id}"`), `${id} missing`);
   }
-  assert.match(script, /llm_model_override/);
-  assert.match(script, /temperature/);
-  assert.match(script, /voice_name/);
+  assert.match(html, /id="pModel" readonly/);
+  assert.match(html, /id="pTemp"[\s\S]{0,100}readonly/);
+  assert.doesNotMatch(script, /llm_model_override:/);
+  assert.doesNotMatch(script, /temperature:/);
+  assert.match(html, /id="pVoiceName" readonly/);
+  assert.doesNotMatch(script, /voice_name:/);
   assert.match(script, /media:/);
 });
 
 test('composer is ownership-gated in UI and API', () => {
   assert.match(html, /id="composer"[^>]*disabled/);
-  assert.match(script, /state\.currentChat\.state!=='HUMAN_ACTIVE'/);
-  assert.match(script, /const canWrite=c\.state==='HUMAN_ACTIVE'/);
+  assert.match(script, /state\.currentChat\.state !== "HUMAN_ACTIVE"/);
+  assert.match(script, /const canWrite = c\.state === "HUMAN_ACTIVE"/);
   assert.match(server, /c\.state !== 'HUMAN_ACTIVE'/);
 });
 
 test('profile mutation is validated instead of accepting arbitrary DB fields', () => {
   assert.match(server, /Unbekannte Profilfelder/);
-  assert.match(server, /HOT-Schwelle muss zwischen 0 und 1 liegen/);
-  assert.match(server, /KI-Runden müssen zwischen 1 und 50 liegen/);
+  assert.match(server, /hot_threshold: GLOBAL_HOT_THRESHOLD/);
+  assert.match(server, /max_ai_turns: GLOBAL_MAX_AI_TURNS/);
+  assert.doesNotMatch(server, /'bot_enabled', 'hot_threshold'/);
 });
 
 test('LLM secret can come from deployment environment without exposing it to bootstrap', () => {
@@ -112,8 +116,8 @@ test('all UI API calls have corresponding server routes', () => {
 
 test('QR polling can be cancelled when modal closes', () => {
   assert.match(script, /qrPollToken/);
-  assert.match(script, /if\(id==='qrModal'\)state\.qrPollToken\+\+/);
-  assert.match(script, /token!==state\.qrPollToken/);
+  assert.match(script, /if \(id === "qrModal"\) state\.qrPollToken\+\+/);
+  assert.match(script, /token !== state\.qrPollToken/);
 });
 
 test('mobile navigation and desktop navigation are both present', () => {

@@ -30,9 +30,9 @@ test('entry photo sender is human-gated and profile-scoped',()=>{
 
 test('entry photo UI keeps one compact mobile composer control',()=>{
   assert.match(html,/onclick="openEntryPhotoPicker\(\)"/);
-  assert.match(html,/const options=\[\['door','Haustür'/);
-  assert.match(html,/\['bell','Klingel'/);
+  assert.match(html,/const options\s*=\s*\[\s*\["door",\s*"Haustür"/);
+  assert.match(html,/\["bell",\s*"Klingel"/);
   assert.match(html,/async function sendEntryPhoto\(type\)/);
-  assert.match(html,/grid-template-columns:auto auto auto minmax\(0,1fr\) auto/);
+  assert.match(html,/grid-template-columns:\s*auto auto auto minmax\(0,\s*1fr\) auto/);
   assert.match(store,/entry_photos\?: \{ door_url\?: string \| null; bell_url\?: string \| null \}/);
 });

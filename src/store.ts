@@ -27,6 +27,9 @@ export type Profile = {
   name: string;
   phone_label?: string | null;
   location?: string | null;
+  desired_location?: string | null;
+  share_location?: { place_id?: string | null; label?: string | null; address: string; latitude: number; longitude: number } | null;
+  entry_photos?: { door_url?: string | null; bell_url?: string | null } | null;
   price_text?: string | null;
   hours_text?: string | null;
   avatar_url?: string | null;
@@ -67,7 +70,7 @@ export type StoredMessage = {
   wa_message_id?: string | null;
   direction: 'in' | 'out';
   sender: 'lead' | 'ai' | 'human' | 'system';
-  kind: 'text' | 'voice' | 'image' | 'system';
+  kind: 'text' | 'voice' | 'image' | 'location' | 'system';
   text?: string | null;
   media_url?: string | null;
   created_at: string;
