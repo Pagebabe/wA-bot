@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc -p tsconfig.json",
+    "dev": "node scripts/prepare-inbound-voice-reply.mjs && tsx watch src/server.ts",
+    "build": "node scripts/prepare-inbound-voice-reply.mjs && tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "node scripts/prepare-inbound-voice-reply.mjs && tsc -p tsconfig.json --noEmit",
     "pretest": "npm run build",
     "test": "node scripts/dependency-audit.mjs && node --test tests/*.test.mjs"
   },
