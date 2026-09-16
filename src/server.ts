@@ -598,7 +598,7 @@ app.setNotFoundHandler((request, reply) => {
   return reply.sendFile('index.html');
 });
 
-const initialProfiles = await profiles();
+const initialProfiles = await profiles().catch((error) => { app.log.error({ err: error }, 'Initial profile load failed'); return []; });
 restoreWhatsAppSessions(initialProfiles).catch((error) => app.log.error(error));
 void getVapidPublicKey().catch((error) => app.log.warn({ err: error }, 'Push initialization failed'));
 
