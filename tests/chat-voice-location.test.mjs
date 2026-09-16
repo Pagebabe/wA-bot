@@ -65,7 +65,7 @@ test("wrapped WhatsApp voice and text messages are unwrapped", () => {
   );
 });
 
-test("ElevenLabs voice requests WhatsApp-compatible Opus 48 kHz", async () => {
+test("ElevenLabs voice requests WhatsApp-compatible Opus 48 kHz with Eleven v3 defaults", async () => {
   const original = globalThis.fetch;
   let seen;
   globalThis.fetch = async (url, options) => {
@@ -78,9 +78,31 @@ test("ElevenLabs voice requests WhatsApp-compatible Opus 48 kHz", async () => {
       "Hallo",
     );
     assert.match(seen.url, /output_format=opus_48000_64/);
-    assert.equal(JSON.parse(seen.options.body).model_id, "eleven_flash_v2_5");
+    const body = JSON.parse(seen.options.body);
+    assert.equal(body.model_id, "eleven_v3");
+    assert.deepEqual(body.voice_settings, { stability: 0.5 });
     assert.equal(result.mime, "audio/ogg; codecs=opus");
     assert.equal(result.buffer.length, 3);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("ElevenLabs Flash fallback keeps its supported tuning fields", async () => {
+  const original = globalThis.fetch;
+  let body;
+  globalThis.fetch = async (_url, options) => {
+    body = JSON.parse(options.body);
+    return new Response(new Uint8Array([1]), { status: 200 });
+  };
+  try {
+    await synthesizeVoice(
+      { tts_api_key: "key", tts_voice_id: "voice", tts_model: "eleven_flash_v2_5" },
+      "Hallo",
+    );
+    assert.equal(body.model_id, "eleven_flash_v2_5");
+    assert.equal(body.voice_settings.similarity_boost, 0.78);
+    assert.equal(body.voice_settings.use_speaker_boost, true);
   } finally {
     globalThis.fetch = original;
   }
