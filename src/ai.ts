@@ -15,6 +15,9 @@ export type Qualification = {
   reason: string;
 };
 
+const LLM_ATTEMPT_TIMEOUT_MS = 50_000;
+const LLM_MAX_ATTEMPTS = 2;
+
 function normalizeBaseUrl(input: string): string {
   return input.replace(/\/$/, '').replace(/\/v1$/, '') + '/v1';
 }
@@ -26,6 +29,34 @@ function extractJson(text: string): unknown {
   const end = trimmed.lastIndexOf('}');
   if (start >= 0 && end > start) return JSON.parse(trimmed.slice(start, end + 1));
   throw new Error('LLM returned no JSON object');
+}
+
+function isRetryableStatus(status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchLlm(url: string, init: RequestInit): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= LLM_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(LLM_ATTEMPT_TIMEOUT_MS),
+      });
+      if (!isRetryableStatus(response.status) || attempt === LLM_MAX_ATTEMPTS) return response;
+      await response.arrayBuffer().catch(() => undefined);
+      lastError = new Error(`LLM HTTP ${response.status}`);
+    } catch (error) {
+      lastError = error;
+      if (attempt === LLM_MAX_ATTEMPTS) break;
+    }
+    await sleep(350 * attempt);
+  }
+  throw lastError instanceof Error ? lastError : new Error('LLM request failed');
 }
 
 export async function qualifyLead(
@@ -54,12 +85,13 @@ export async function qualifyLead(
     'Wenn hot=true, darf reply leer sein. score muss zwischen 0 und 1 liegen.',
   ].filter(Boolean).join('\n');
 
-  const response = await fetch(`${normalizeBaseUrl(base)}/chat/completions`, {
+  const response = await fetchLlm(`${normalizeBaseUrl(base)}/chat/completions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model,
       temperature: Number(profile.temperature ?? 0.35),
+      max_tokens: 220,
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: `Aktueller Chat:\n${transcript}\n\nBewerte jetzt den Lead.` },
@@ -85,7 +117,7 @@ export async function synthesizeVoice(settings: LlmSettings, text: string, voice
   const base = settings.llm_base_url;
   if (!apiKey || !base) throw new Error('Voice API is not configured');
   const model = settings.voice_model || 'gpt-4o-mini-tts';
-  const response = await fetch(`${normalizeBaseUrl(base)}/audio/speech`, {
+  const response = await fetchLlm(`${normalizeBaseUrl(base)}/audio/speech`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({ model, voice, input: text, format: 'mp3' }),
@@ -102,7 +134,7 @@ export async function transcribeAudio(settings: LlmSettings, audio: Buffer, mime
   form.append('model', 'gpt-4o-mini-transcribe');
   const copy = Uint8Array.from(audio);
   form.append('file', new Blob([copy.buffer as ArrayBuffer], { type: mime }), 'voice.ogg');
-  const response = await fetch(`${normalizeBaseUrl(base)}/audio/transcriptions`, {
+  const response = await fetchLlm(`${normalizeBaseUrl(base)}/audio/transcriptions`, {
     method: 'POST',
     headers: { authorization: `Bearer ${apiKey}` },
     body: form,
