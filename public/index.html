@@ -1900,18 +1900,21 @@
             </div>
             <div class="grid2">
               <div class="field">
-                <label>Sprach-Anbieter</label
+                <label>Fallback-Sprach-Anbieter</label
                 ><input
                   id="sVoiceProvider"
                   value="same-api"
                   disabled
-                  title="In der Beta ist der Sprach-Anbieter an dieselbe API gebunden"
+                  title="ElevenLabs wird automatisch über sichere Runtime-Secrets aktiviert; sonst wird die OpenAI-kompatible API verwendet"
                 />
               </div>
               <div class="field">
-                <label>Sprachmodell</label
+                <label>Fallback-Sprachmodell</label
                 ><input id="sVoiceModel" value="gpt-4o-mini-tts" />
               </div>
+            </div>
+            <div id="voiceRuntimeStatus" class="notice" style="margin-top: 10px">
+              Sprach-Runtime wird geprüft …
             </div>
           </div>
           <div class="settingsGroup">
@@ -2653,8 +2656,13 @@
           : "gespeichert oder neu eintragen";
         $("sDisclosure").checked = s.ai_disclosure_enabled !== false;
         $("sVoiceEnabled").checked = !!s.voice_enabled;
-        $("sVoiceProvider").value = s.voice_provider || "same-api";
+        $("sVoiceProvider").value = "same-api";
         $("sVoiceModel").value = s.voice_model || "gpt-4o-mini-tts";
+        if ($("voiceRuntimeStatus")) {
+          $("voiceRuntimeStatus").textContent = s.has_tts_key
+            ? "✅ ElevenLabs Runtime-Secret + Voice-ID aktiv · Voice-Notes können über ElevenLabs beantwortet werden."
+            : "ℹ️ Kein ElevenLabs Runtime-Secret erkannt · TTS nutzt bei Bedarf die OpenAI-kompatible Fallback-API.";
+        }
         $("testResult").textContent = s.has_llm_key
           ? envKey
             ? "✅ Railway-Secret aktiv"

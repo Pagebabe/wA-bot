@@ -19,4 +19,7 @@ test('beta UI does not advertise handoff or voice-provider modes that runtime do
   assert.doesNotMatch(html, /value="assist">KI assistiert/);
   assert.doesNotMatch(html, /value="continue">KI darf weiter/);
   assert.match(html, /<input[\s\S]{0,160}id="sVoiceProvider"[\s\S]{0,160}disabled/);
+  assert.match(html, /id="voiceRuntimeStatus"/);
+  assert.match(html, /s\.has_tts_key/);
+  assert.match(html, /ElevenLabs Runtime-Secret \+ Voice-ID aktiv/);
 });
