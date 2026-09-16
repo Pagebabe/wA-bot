@@ -115,14 +115,17 @@ export async function synthesizeVoice(settings: LlmSettings, text: string, voice
   const elevenKey = settings.tts_api_key || process.env.ELEVENLABS_API_KEY;
   const elevenVoice = settings.tts_voice_id || process.env.ELEVENLABS_VOICE_ID;
   if (elevenKey && elevenVoice) {
-    const model = settings.tts_model || process.env.ELEVENLABS_MODEL_ID || 'eleven_flash_v2_5';
+    const model = settings.tts_model || process.env.ELEVENLABS_MODEL_ID || 'eleven_v3';
+    const voiceSettings = model === 'eleven_v3'
+      ? { stability: 0.5 }
+      : { stability: 0.45, similarity_boost: 0.78, style: 0, use_speaker_boost: true };
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(elevenVoice)}?output_format=opus_48000_64`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'xi-api-key': elevenKey },
       body: JSON.stringify({
         text: input,
         model_id: model,
-        voice_settings: { stability: 0.45, similarity_boost: 0.78, style: 0, use_speaker_boost: true },
+        voice_settings: voiceSettings,
       }),
     });
     if (!response.ok) throw new Error(`TTS HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
