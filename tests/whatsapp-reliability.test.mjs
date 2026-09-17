@@ -15,3 +15,11 @@ test('restart-required disconnect reconnects quickly without presenting as hard 
   assert.match(wa, /restartRequired \? 'connecting' : 'error'/);
   assert.match(wa, /restartRequired \? 250 : 2500/);
 });
+
+test('stalled connecting session is recycled while QR-waiting sessions are left alone', () => {
+  assert.match(wa, /WA_CONNECT_TIMEOUT_MS/);
+  assert.match(wa, /session\.status !== 'connecting' \|\| session\.qrDataUrl/);
+  assert.match(wa, /session\.socket\?\.end\(new Error\('WhatsApp connect watchdog timeout'\)\)/);
+  assert.match(wa, /sessions\.delete\(profile\.id\)/);
+  assert.match(wa, /clearConnectWatch\(session\)/);
+});

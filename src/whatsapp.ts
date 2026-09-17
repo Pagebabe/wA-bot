@@ -20,13 +20,24 @@ type Session = {
   status: 'offline' | 'connecting' | 'online' | 'error';
   account: { id: string; number: string | null; name: string | null } | null;
   reconnecting: boolean;
+  connectWatch?: ReturnType<typeof setTimeout>;
 };
 
 type InboundKind = 'text' | 'voice';
 
 const sessions = new Map<string, Session>();
+const configuredConnectTimeoutMs = Number(process.env.WA_CONNECT_TIMEOUT_MS || 45_000);
+const connectTimeoutMs = Number.isFinite(configuredConnectTimeoutMs)
+  ? Math.max(10_000, configuredConnectTimeoutMs)
+  : 45_000;
 let inboundHandler: ((profileId: string, jid: string, name: string | null, text: string, waMessageId: string | null, raw: unknown, kind: InboundKind) => Promise<void>) | null = null;
 let voiceTranscriber: ((audio: Buffer, mime: string) => Promise<string>) | null = null;
+
+function clearConnectWatch(session: Session) {
+  if (!session.connectWatch) return;
+  clearTimeout(session.connectWatch);
+  session.connectWatch = undefined;
+}
 
 function accountFromUser(user: any) {
   const id = typeof user?.id === 'string' ? user.id.trim() : '';
@@ -130,15 +141,34 @@ export async function connectWhatsApp(profile: Profile): Promise<void> {
     generateHighQualityLinkPreview: false,
   });
   session.socket = socket;
+  session.connectWatch = setTimeout(() => {
+    if (sessions.get(profile.id) !== session || session.status !== 'connecting' || session.qrDataUrl) return;
+    session.reconnecting = true;
+    clearConnectWatch(session);
+    try {
+      session.socket?.end(new Error('WhatsApp connect watchdog timeout'));
+    } catch (error) {
+      logger.warn(error);
+    }
+    sessions.delete(profile.id);
+    setTimeout(() => {
+      connectWhatsApp(profile).catch(async (error) => {
+        logger.error(error);
+        await setProfileStatus(profile.id, 'error');
+      });
+    }, 250);
+  }, connectTimeoutMs);
 
   socket.ev.on('creds.update', saveCreds);
   socket.ev.on('connection.update', async (update: any) => {
     if (update.qr) {
+      clearConnectWatch(session);
       session.qrDataUrl = await QRCode.toDataURL(update.qr, { margin: 1, width: 320 });
       session.status = 'connecting';
       await setProfileStatus(profile.id, 'connecting');
     }
     if (update.connection === 'open') {
+      clearConnectWatch(session);
       session.qrDataUrl = null;
       session.status = 'online';
       session.account = accountFromUser(socket.user) || accountFromUser(state.creds?.me) || session.account;
@@ -146,6 +176,7 @@ export async function connectWhatsApp(profile: Profile): Promise<void> {
       await setProfileStatus(profile.id, 'online');
     }
     if (update.connection === 'close') {
+      clearConnectWatch(session);
       const code = (update.lastDisconnect?.error as Boom | undefined)?.output?.statusCode;
       const loggedOut = code === DisconnectReason.loggedOut;
       const restartRequired = code === DisconnectReason.restartRequired;
