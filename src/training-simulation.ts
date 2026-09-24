@@ -79,6 +79,11 @@ function msg(id: string, conversationId: string, sender: 'lead' | 'ai', text: st
   };
 }
 
+async function simulationPace(signals: ReturnType<typeof analyzeTrainingSignals>): Promise<void> {
+  const needsExternalLlm = !signals.arrivalNow && !signals.hasTemporalWish && !signals.hasDuration;
+  if (needsExternalLlm) await new Promise((resolve) => setTimeout(resolve, 6500));
+}
+
 export async function runTrainingSimulation(
   settings: LlmSettings,
   profile: Profile,
@@ -116,6 +121,7 @@ export async function runTrainingSimulation(
       if (eligible && eligibleAtTurn === null) eligibleAtTurn = i + 1;
 
       try {
+        await simulationPace(signals);
         const result = await qualifyLead(settings, profile, conversation, messages);
         if (result.hot) {
           hotAtTurn = i + 1;
