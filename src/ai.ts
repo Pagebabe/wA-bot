@@ -93,6 +93,40 @@ export async function qualifyLead(
   if (signals.arrivalNow) {
     return { reply: '', hot: true, score: 0.99, reason: 'Kontakt ist bereits vor Ort; sofortige Übergabe.' };
   }
+  if (signals.intents.includes('price')) {
+    const priceFact = String(profile.price_text || '').trim().replace(/[.!?]+$/, '');
+    const fact = priceFact || 'Dazu ist aktuell kein Preis hinterlegt';
+    if (signals.hasTemporalWish && signals.hasDuration) {
+      return {
+        reply: `${fact}. Soll ich das so zur Bestätigung weitergeben? 😊`,
+        hot: false,
+        score: 0.66,
+        reason: 'Preisfrage beantwortet; Zeit und Dauer sind bekannt, klare Bestätigung steht noch aus.',
+      };
+    }
+    if (signals.hasTemporalWish) {
+      return {
+        reply: `${fact}. Wie lange magst du bleiben? 😊`,
+        hot: false,
+        score: 0.46,
+        reason: 'Preisfrage beantwortet; konkreter Zeitwunsch vorhanden, Dauer fehlt.',
+      };
+    }
+    if (signals.hasDayMention) {
+      return {
+        reply: `${fact}. Welche Uhrzeit passt dir? 😊`,
+        hot: false,
+        score: 0.34,
+        reason: 'Preisfrage beantwortet; nur grober Zeitpunkt bekannt.',
+      };
+    }
+    return {
+      reply: `${fact}. Wann magst du kommen? 😊`,
+      hot: false,
+      score: 0.3,
+      reason: 'Preisfrage beantwortet; konkreter Zeitwunsch fehlt.',
+    };
+  }
   if (signals.hasTemporalWish && signals.hasDuration && signals.hasActiveCommitment) {
     return { reply: '', hot: true, score: 0.96, reason: 'Zeitwunsch, Dauer und klare aktive Zusage sind vorhanden.' };
   }

@@ -57,7 +57,7 @@ function hasSpecificTemporalWish(text: string): boolean {
 }
 
 function hasDayMention(text: string): boolean {
-  return /\b(heute|morgen|today|tomorrow)\b/.test(normalize(text));
+  return /\b(heute|morgen|today|tomorrow|später|later)\b/.test(normalize(text));
 }
 
 function hasDuration(text: string): boolean {
