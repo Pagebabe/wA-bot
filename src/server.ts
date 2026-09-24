@@ -235,7 +235,7 @@ app.post('/api/evolution/webhook', async (request, reply) => {
   return { ok: true };
 });
 
-app.get('/health', async () => ({ ok: true, service: 'wa-bot', version: '0.4.0', whatsappProvider: whatsappProviderName() }));
+app.get('/health', async () => ({ ok: true, service: 'wa-bot', version: '0.4.0', release: '2026-09-24-go-live', whatsappProvider: whatsappProviderName() }));
 
 app.get('/api/bootstrap', async () => {
   const [p, c, s] = await Promise.all([profiles(), conversations(), settings()]);
