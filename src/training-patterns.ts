@@ -8,14 +8,20 @@ export type LeadIntent =
   | 'location'
   | 'media'
   | 'arrival'
+  | 'commitment'
+  | 'abort'
   | 'other';
 
 export type TrainingSignals = {
   intents: LeadIntent[];
   hasTemporalWish: boolean;
   hasDuration: boolean;
+  hasActiveCommitment: boolean;
+  commitmentNow: boolean;
   arrivalNow: boolean;
-  nextMissing: 'time' | 'duration' | null;
+  abortNow: boolean;
+  hasAbort: boolean;
+  nextMissing: 'time' | 'duration' | 'confirmation' | null;
 };
 
 function normalize(input: string): string {
@@ -32,7 +38,9 @@ export function detectLeadIntents(input: string): LeadIntent[] {
   if (/\b(15|20|30|45|60|90)\s*(min|minuten?|minute|minutes?|std|stunde[n]?|hours?)?\b|\b(halbe|eine|1)\s+stunde\b|\b(one|half)\s+hour\b/.test(text)) intents.add('duration');
   if (/\b(adresse|wo|zimmer|etage|stock|klingel|klingeln|klopfen|eingang|tür)\b/.test(text)) intents.add('location');
   if (/\b(foto|fotos|bild|bilder|video)\b/.test(text)) intents.add('media');
-  if (/\b(bin da|angekommen|vor der tür|unten|stehe davor|ich bin hier)\b/.test(text)) intents.add('arrival');
+  if (/\b(bin da|angekommen|vor der tür|stehe davor|ich bin hier|bin unten|stehe unten)\b/.test(text)) intents.add('arrival');
+  if (/\b(ich komme|komme vorbei|ich will kommen|ich möchte kommen|passt mir|passt gut|bis gleich|bis später|fest einplanen|termin bestätigen)\b/.test(text)) intents.add('commitment');
+  if (/\b(Doch nicht|kann nicht|schaffe es nicht|absagen|stornieren|anderes mal|kein interesse|nein danke|lass mal|vergiss es|bin raus|heute nicht)\b/i.test(text)) intents.add('abort');
   return intents.size ? [...intents] : ['other'];
 }
 
@@ -50,7 +58,32 @@ function hasDuration(text: string): boolean {
 }
 
 function isArrival(text: string): boolean {
-  return /\b(bin da|angekommen|vor der tür|stehe davor|ich bin hier)\b/.test(normalize(text));
+  return /\b(bin da|angekommen|vor der tür|stehe davor|ich bin hier|bin unten|stehe unten)\b/.test(normalize(text));
+}
+
+function isAbort(text: string): boolean {
+  const t = normalize(text);
+  return /\b(doch nicht|kann nicht|schaffe es nicht|schaffe ich nicht|absagen|absage|stornieren|storno|anderes mal|kein interesse|nein danke|lass mal|vergiss es|bin raus|heute nicht|wird nichts)\b/.test(t);
+}
+
+function isStrongCommitment(text: string): boolean {
+  const t = normalize(text);
+  return /\b(ich komme|komme vorbei|ich will kommen|ich möchte kommen|passt mir|passt gut|bis gleich|bis später|fest einplanen|termin bestätigen|ja ich komme|ok ich komme|okay ich komme)\b/.test(t);
+}
+
+function isAffirmative(text: string): boolean {
+  return /^(ja|jap|jo|yes|ok|okay|passt|perfekt|super|gerne|gern)[.! ]*$/.test(normalize(text));
+}
+
+function previousPromptAskedForConfirmation(messages: StoredMessage[], latestLeadIndex: number): boolean {
+  for (let i = latestLeadIndex - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (!message || typeof message.text !== 'string') continue;
+    if (message.sender === 'lead') break;
+    const t = normalize(String(message.text || ''));
+    if (/\b(fest|bestätig|weitergeben|einplanen|passt das|soll ich|termin so)\b/.test(t)) return true;
+  }
+  return false;
 }
 
 export function analyzeTrainingSignals(messages: StoredMessage[]): TrainingSignals {
@@ -62,12 +95,35 @@ export function analyzeTrainingSignals(messages: StoredMessage[]): TrainingSigna
   const joined = leadMessages.slice(-12).join(' \n ');
   const temporal = hasSpecificTemporalWish(joined);
   const duration = hasDuration(joined);
+
+  const leadIndexes = messages
+    .map((message, index) => ({ message, index }))
+    .filter(({ message }) => message.sender === 'lead' && typeof message.text === 'string' && String(message.text || '').trim());
+  const latestLeadIndex = leadIndexes.at(-1)?.index ?? -1;
+  const latestAbort = [...leadIndexes].reverse().find(({ message }) => isAbort(String(message.text || '')));
+  const latestStrongCommit = [...leadIndexes].reverse().find(({ message, index }) => {
+    const text = String(message.text || '');
+    return isStrongCommitment(text) || (isAffirmative(text) && previousPromptAskedForConfirmation(messages, index));
+  });
+  const commitmentNow = latestLeadIndex >= 0 && (
+    isStrongCommitment(latest)
+    || (isAffirmative(latest) && previousPromptAskedForConfirmation(messages, latestLeadIndex))
+  );
+  const abortNow = isAbort(latest);
+  const latestAbortIndex = latestAbort?.index ?? -1;
+  const latestCommitIndex = latestStrongCommit?.index ?? -1;
+  const activeCommitment = latestCommitIndex >= 0 && latestCommitIndex > latestAbortIndex;
+
   return {
     intents: detectLeadIntents(latest),
     hasTemporalWish: temporal,
     hasDuration: duration,
+    hasActiveCommitment: activeCommitment,
+    commitmentNow,
     arrivalNow: isArrival(latest),
-    nextMissing: temporal ? (duration ? null : 'duration') : 'time',
+    abortNow,
+    hasAbort: latestAbortIndex >= 0,
+    nextMissing: temporal ? (duration ? (activeCommitment ? null : 'confirmation') : 'duration') : 'time',
   };
 }
 
@@ -91,15 +147,20 @@ export function buildTrainingGuidance(profile: Profile, messages: StoredMessage[
     'Preise, Ort und Zeiten dürfen ausschließlich aus den bestätigten Profildaten stammen.',
     'Frage nicht erneut nach Informationen, die im aktuellen Verlauf bereits genannt wurden.',
     'Stelle höchstens eine konkrete Rückfrage pro Antwort.',
-    'Wenn ein konkreter Zeitwunsch und eine Dauer vorliegen, ist der Lead übergabebereit: hot=true, reply leer.',
+    'Zeitwunsch plus Dauer allein reicht NICHT für HOT. Dafür braucht es zusätzlich eine klare aktive Zusage des Kontakts.',
+    'Eine Frage wie „Kann ich kommen?“ oder „Ich könnte kommen“ ist noch keine verbindliche Zusage.',
+    'Wenn Zeitwunsch und Dauer vorliegen, aber die Zusage fehlt, frage knapp nach Bestätigung.',
     'Wenn der Kontakt bereits angekommen ist oder unmittelbar vor Ort wartet, sofort hot=true und reply leer.',
+    'Bei einer aktuellen Absage oder einem Abbruch nicht HOT setzen und nicht weiter drängen.',
     'Wenn nur ein Zeitwunsch fehlt, frage nach Tag/Uhrzeit. Wenn nur die Dauer fehlt, frage nach der gewünschten Dauer.',
     'Bei Ortsfragen dürfen Zimmer, Etage, Klingel oder Zugang nicht erfunden werden.',
     'Bei Medienfragen verspreche keine Datei, die nicht als Profilmedium hinterlegt ist.',
   ];
   if (signals.nextMissing === 'time') rules.push('Nächster fehlender Slot: Zeitwunsch.');
   if (signals.nextMissing === 'duration') rules.push('Nächster fehlender Slot: Dauer.');
-  if (signals.nextMissing === null) rules.push('Zeitwunsch und Dauer sind vorhanden; nicht weiter qualifizieren, sondern übergeben.');
+  if (signals.nextMissing === 'confirmation') rules.push('Zeitwunsch und Dauer sind vorhanden; nächste Aktion ist eine klare Bestätigung/Zusage.');
+  if (signals.nextMissing === null) rules.push('Zeitwunsch, Dauer und aktive Zusage sind vorhanden; jetzt an einen Menschen übergeben.');
+  if (signals.abortNow) rules.push('Aktueller Zustand: Abbruch/Absage. Nicht weiter qualifizieren.');
   rules.push('Bestätigte Profildaten:');
   rules.push(...(facts.length ? facts.map((fact) => `- ${fact}`) : ['- Keine verwertbaren Preis-/Zeit-/Ortsdaten hinterlegt.']));
   return rules.join('\n');
