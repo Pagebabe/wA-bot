@@ -130,6 +130,38 @@ export async function qualifyLead(
   if (signals.hasTemporalWish && signals.hasDuration && signals.hasActiveCommitment) {
     return { reply: '', hot: true, score: 0.96, reason: 'Zeitwunsch, Dauer und klare aktive Zusage sind vorhanden.' };
   }
+  if (signals.hasActiveCommitment && signals.hasTemporalWish && !signals.hasDuration) {
+    return {
+      reply: 'Perfekt 😊 Wie lange magst du bleiben?',
+      hot: false,
+      score: 0.74,
+      reason: 'Klare Zusage und Zeitwunsch vorhanden; Dauer fehlt noch. WARM, aber noch nicht HOT.',
+    };
+  }
+  if (signals.hasActiveCommitment && !signals.hasTemporalWish && signals.hasDayMention) {
+    return {
+      reply: 'Perfekt 😊 Welche Uhrzeit passt dir?',
+      hot: false,
+      score: 0.72,
+      reason: 'Klare Zusage und Tag vorhanden; konkrete Uhrzeit fehlt noch. WARM, aber noch nicht HOT.',
+    };
+  }
+  if (signals.hasActiveCommitment && !signals.hasTemporalWish && signals.hasDuration) {
+    return {
+      reply: 'Perfekt 😊 Wann magst du kommen?',
+      hot: false,
+      score: 0.72,
+      reason: 'Klare Zusage und Dauer vorhanden; konkrete Uhrzeit fehlt noch. WARM, aber noch nicht HOT.',
+    };
+  }
+  if (signals.hasActiveCommitment && !signals.hasTemporalWish && !signals.hasDuration) {
+    return {
+      reply: 'Perfekt 😊 Wann magst du kommen?',
+      hot: false,
+      score: 0.7,
+      reason: 'Klare Zusage vorhanden; Zeit und Dauer fehlen noch. WARM, aber noch nicht HOT.',
+    };
+  }
   if (signals.hasTemporalWish && signals.hasDuration && !signals.hasActiveCommitment) {
     return {
       reply: 'Perfekt 😊 Soll ich das so zur Bestätigung weitergeben?',
