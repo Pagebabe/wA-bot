@@ -1,4 +1,5 @@
 import makeWASocket, {
+  Browsers,
   BufferJSON,
   DisconnectReason,
   downloadMediaMessage,
@@ -151,6 +152,7 @@ export async function connectWhatsApp(profile: Profile): Promise<void> {
 
   const socket = makeWASocket({
     auth: state as any,
+    browser: Browsers.macOS('Desktop'),
     logger: logger as any,
     markOnlineOnConnect: false,
     syncFullHistory: true,
