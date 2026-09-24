@@ -9,6 +9,7 @@ import { autocompletePlaces, getPlaceDetails } from './places.js';
 import { verifyBasicAuthorization } from './auth.js';
 import { getVapidPublicKey, notifyHotLead, savePushSubscription } from './push.js';
 import { persistInboundMessage } from './inbound-message.js';
+import { buildTrainingConversation, toJsonl, waLinkFromJid } from './training-export.js';
 import {
   connectWhatsApp,
   getConnection,
@@ -18,6 +19,7 @@ import {
   sendLocation,
   sendVoiceAudio,
   setInboundHandler,
+  setHistoryHandler,
   setVoiceTranscriber,
   unlinkWhatsApp,
   handleEvolutionWebhook,
@@ -123,6 +125,43 @@ setVoiceTranscriber(async (audio, mime) => {
   const currentSettings = await settings();
   if (!currentSettings.voice_enabled) throw new Error('Voice transcription is disabled');
   return transcribeAudio(currentSettings as LlmSettings, audio, mime);
+});
+
+setHistoryHandler(async (profileId, jid, name, text, waMessageId, raw, kind, fromMe, createdAt) => {
+  const profile = await getProfile(profileId);
+  const existing = (await conversations(profileId)).find((x) => x.wa_jid === jid);
+  const timestamp = createdAt || new Date().toISOString();
+  const conversation = existing || (await gateway<{ data: Conversation }>('upsert_conversation', {
+    data: {
+      profile_id: profile.id,
+      wa_jid: jid,
+      contact_name: name,
+      state: 'CLOSED',
+      ai_turns: 0,
+      unread_count: 0,
+      last_message_preview: text.slice(0, 180),
+      last_message_at: timestamp,
+    },
+  })).data;
+
+  await addMessage({
+    conversation_id: conversation.id,
+    wa_message_id: waMessageId,
+    direction: fromMe ? 'out' : 'in',
+    sender: fromMe ? 'human' : 'lead',
+    kind,
+    text,
+    raw,
+    created_at: timestamp,
+  });
+
+  if (!existing || !existing.last_message_at || timestamp > existing.last_message_at) {
+    await updateConversation(conversation.id, {
+      contact_name: name || conversation.contact_name || null,
+      last_message_preview: text.slice(0, 180),
+      last_message_at: timestamp,
+    });
+  }
 });
 
 setInboundHandler(async (profileId, jid, name, text, waMessageId, raw, kind) => {
@@ -398,6 +437,51 @@ app.get('/api/profiles/:id/connection', async (request) => getConnection((reques
 app.post('/api/profiles/:id/unlink', async (request) => {
   await unlinkWhatsApp((request.params as any).id);
   return { ok: true };
+});
+
+
+app.get('/api/profiles/:id/whatsapp-links', async (request) => {
+  const profile = await getProfile((request.params as any).id);
+  const rows = await conversations(profile.id);
+  return {
+    profile: { id: profile.id, name: profile.name },
+    data: rows.map((conversation) => ({
+      conversation_id: conversation.id,
+      contact_name: conversation.contact_name || null,
+      wa_jid: conversation.wa_jid,
+      wa_link: waLinkFromJid(conversation.wa_jid),
+      last_message_at: conversation.last_message_at || null,
+    })),
+  };
+});
+
+app.get('/api/profiles/:id/training-export', async (request, reply) => {
+  const profile = await getProfile((request.params as any).id);
+  const format = String((request.query as any)?.format || 'jsonl').toLowerCase();
+  const rows = await conversations(profile.id);
+  const training = [];
+  for (const conversation of rows) {
+    const history = (await gateway<{ data: StoredMessage[] }>('list_messages', {
+      conversation_id: conversation.id,
+      limit: 10000,
+    })).data || [];
+    training.push(buildTrainingConversation(profile, conversation, history));
+  }
+
+  const stamp = new Date().toISOString().slice(0, 10);
+  const safeName = profile.name.replace(/[^a-z0-9_-]+/gi, '_').replace(/^_+|_+$/g, '') || profile.id;
+  if (format === 'json') {
+    reply.header('content-disposition', `attachment; filename="whatsapp-training-${safeName}-${stamp}.json"`);
+    return {
+      exported_at: new Date().toISOString(),
+      profile: { id: profile.id, name: profile.name },
+      conversations: training.filter((row) => row.messages.length > 0),
+    };
+  }
+  if (format !== 'jsonl') return reply.code(400).send({ error: 'format muss json oder jsonl sein' });
+  reply.type('application/x-ndjson; charset=utf-8');
+  reply.header('content-disposition', `attachment; filename="whatsapp-training-${safeName}-${stamp}.jsonl"`);
+  return toJsonl(training);
 });
 
 app.get('/api/conversations/:id/messages', async (request) => ({ data: await messages((request.params as any).id) }));
