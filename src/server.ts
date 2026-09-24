@@ -568,8 +568,10 @@ app.post('/api/conversations/:id/review/approve', async (request, reply) => {
     ? String(body.text || '').trim()
     : String(current.pending_ai_reply || '').trim();
   const pendingHot = Boolean(current.pending_ai_hot);
+  const action = String(body.action || 'send');
 
-  if (pendingHot && !editedText) {
+  if (action === 'hot') {
+    if (!pendingHot) return reply.code(409).send({ error: 'Dieser Vorschlag ist kein HOT-Kandidat' });
     const updated = await updateConversation(id, {
       state: 'HOT',
       hot_score: current.pending_ai_score ?? current.hot_score ?? 0,
