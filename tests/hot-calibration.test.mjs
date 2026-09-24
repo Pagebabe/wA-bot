@@ -119,3 +119,25 @@ test('vague later intent asks for a concrete clock time first', async () => {
   assert.match(result.reply, /Uhrzeit/i);
   assert.doesNotMatch(result.reply, /wie lange/i);
 });
+
+
+test('clear commitment without complete slots is WARM, not HOT', async () => {
+  const result = await qualifyLead({}, profile, conversation, [
+    m('lead', 'Ja ich komme.', 1),
+  ]);
+  assert.equal(result.hot, false);
+  assert.ok(result.score >= 0.7 && result.score < 0.8);
+  assert.match(result.reason, /WARM/);
+  assert.match(result.reply, /wann/i);
+});
+
+test('commitment plus time asks only for missing duration and stays WARM', async () => {
+  const result = await qualifyLead({}, profile, conversation, [
+    m('lead', 'Heute 20:00', 1),
+    m('lead', 'Ja ich komme.', 2),
+  ]);
+  assert.equal(result.hot, false);
+  assert.ok(result.score >= 0.7 && result.score < 0.8);
+  assert.match(result.reply, /wie lange/i);
+  assert.doesNotMatch(result.reply, /bestätigung/i);
+});
