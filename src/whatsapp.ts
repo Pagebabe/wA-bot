@@ -155,7 +155,7 @@ export async function connectWhatsApp(profile: Profile): Promise<void> {
     browser: Browsers.macOS('Desktop'),
     logger: logger as any,
     markOnlineOnConnect: false,
-    syncFullHistory: true,
+    syncFullHistory: process.env.WHATSAPP_SYNC_FULL_HISTORY === 'true',
     generateHighQualityLinkPreview: false,
   });
   session.socket = socket;
@@ -198,6 +198,13 @@ export async function connectWhatsApp(profile: Profile): Promise<void> {
       const code = (update.lastDisconnect?.error as Boom | undefined)?.output?.statusCode;
       const loggedOut = code === DisconnectReason.loggedOut;
       const restartRequired = code === DisconnectReason.restartRequired;
+      logger.warn({
+        profileId: profile.id,
+        code,
+        restartRequired,
+        loggedOut,
+        message: update.lastDisconnect?.error instanceof Error ? update.lastDisconnect.error.message : String(update.lastDisconnect?.error || ''),
+      }, 'WhatsApp connection closed');
       session.status = loggedOut ? 'offline' : restartRequired ? 'connecting' : 'error';
       await setProfileStatus(profile.id, session.status);
       if (loggedOut) {
