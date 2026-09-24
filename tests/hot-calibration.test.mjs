@@ -60,3 +60,34 @@ test('current cancellation overrides an earlier commitment', async () => {
   assert.ok(result.score < 0.2);
   assert.match(result.reason, /Absage|Abbruch/);
 });
+
+
+test('day-only availability asks for a clock time before duration', async () => {
+  const result = await qualifyLead({}, profile, conversation, [
+    m('lead', 'Hast du heute Zeit?', 1),
+  ]);
+  assert.equal(result.hot, false);
+  assert.match(result.reply, /Uhrzeit/i);
+  assert.doesNotMatch(result.reply, /wie lange/i);
+});
+
+test('ETA in minutes is not mistaken for requested duration', async () => {
+  const result = await qualifyLead({}, profile, conversation, [
+    m('lead', 'Kann ich in 20 Minuten kommen?', 1),
+  ]);
+  assert.equal(result.hot, false);
+  assert.match(result.reply, /wie lange/i);
+});
+
+test('hesitation stops confirmation pressure', async () => {
+  const result = await qualifyLead({}, profile, conversation, [
+    m('lead', 'Heute 20:00', 1),
+    m('lead', '30 Minuten', 2),
+    m('ai', 'Soll ich das so zur Bestätigung weitergeben?', 3),
+    m('lead', 'Ich überlege noch.', 4),
+  ]);
+  assert.equal(result.hot, false);
+  assert.ok(result.score < 0.3);
+  assert.match(result.reply, /kein stress|sicher bist/i);
+  assert.doesNotMatch(result.reply, /bestätigung/i);
+});
