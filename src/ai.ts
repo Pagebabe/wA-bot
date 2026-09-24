@@ -1,6 +1,6 @@
 import type { Conversation, Profile, StoredMessage } from './store.js';
 import { buildSystemPrompt } from './chat-policy.js';
-import { buildTrainingGuidance } from './training-patterns.js';
+import { analyzeTrainingSignals, buildTrainingGuidance } from './training-patterns.js';
 
 export type LlmSettings = {
   llm_base_url?: string | null;
@@ -73,6 +73,20 @@ export async function qualifyLead(
   conversation: Conversation,
   messages: StoredMessage[],
 ): Promise<Qualification> {
+  const signals = analyzeTrainingSignals(messages);
+  if (signals.arrivalNow) {
+    return { reply: '', hot: true, score: 0.98, reason: 'Kontakt ist bereits vor Ort; sofortige Übergabe.' };
+  }
+  if (signals.hasTemporalWish && signals.hasDuration) {
+    return { reply: '', hot: true, score: 0.95, reason: 'Zeitwunsch und Dauer sind vorhanden; Übergabe an Menschen.' };
+  }
+  if (signals.hasTemporalWish && !signals.hasDuration) {
+    return { reply: 'Wie lange magst du bleiben? 😊', hot: false, score: 0.55, reason: 'Zeitwunsch vorhanden, Dauer fehlt.' };
+  }
+  if (!signals.hasTemporalWish && signals.hasDuration) {
+    return { reply: 'Wann magst du kommen? 😊', hot: false, score: 0.5, reason: 'Dauer vorhanden, Zeitwunsch fehlt.' };
+  }
+
   const apiKey = settings.llm_api_key_encrypted;
   const model = settings.llm_model;
   const base = settings.llm_base_url;
@@ -99,10 +113,10 @@ export async function qualifyLead(
   const content = payload?.choices?.[0]?.message?.content;
   if (typeof content !== 'string') throw new Error('LLM response has no message content');
   const parsed: any = extractJson(content);
-  const score = Math.max(0, Math.min(1, Number(parsed.score ?? 0)));
+  const score = Math.max(0, Math.min(0.79, Number(parsed.score ?? 0)));
   return {
     reply: typeof parsed.reply === 'string' ? parsed.reply.trim() : '',
-    hot: Boolean(parsed.hot) || score >= 0.8,
+    hot: false,
     score,
     reason: typeof parsed.reason === 'string' ? parsed.reason.slice(0, 500) : '',
   };

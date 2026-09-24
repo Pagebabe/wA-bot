@@ -29,7 +29,7 @@ export function detectLeadIntents(input: string): LeadIntent[] {
   if (/^(hi|hey|hallo|hello|guten (morgen|tag|abend)|moin)\b/.test(text)) intents.add('greeting');
   if (/\b(preis|preise|kostet|kosten|wieviel|wie viel|euro|€)\b/.test(text)) intents.add('price');
   if (/\b(wann|heute|morgen|jetzt|gleich|später|uhr|termin|zeit|kommen|komme|vorbei)\b/.test(text)) intents.add('scheduling');
-  if (/\b(15|20|30|45|60|90)\s*(min|minuten?|minute|std|stunde[n]?)?\b|\b(halbe|eine|1)\s+stunde\b/.test(text)) intents.add('duration');
+  if (/\b(15|20|30|45|60|90)\s*(min|minuten?|minute|minutes?|std|stunde[n]?|hours?)?\b|\b(halbe|eine|1)\s+stunde\b|\b(one|half)\s+hour\b/.test(text)) intents.add('duration');
   if (/\b(adresse|wo|zimmer|etage|stock|klingel|klingeln|klopfen|eingang|tür)\b/.test(text)) intents.add('location');
   if (/\b(foto|fotos|bild|bilder|video)\b/.test(text)) intents.add('media');
   if (/\b(bin da|angekommen|vor der tür|unten|stehe davor|ich bin hier)\b/.test(text)) intents.add('arrival');
@@ -45,7 +45,7 @@ function hasSpecificTemporalWish(text: string): boolean {
 
 function hasDuration(text: string): boolean {
   const t = normalize(text);
-  return /\b(15|20|30|45|60|90)\s*(min|minuten?|minute|std|stunde[n]?)\b/.test(t)
+  return /\b(15|20|30|45|60|90)\s*(min|minuten?|minute|minutes?|std|stunde[n]?|hours?)\b/.test(t)
     || /\b(halbe|eine|1)\s+stunde\b/.test(t);
 }
 
