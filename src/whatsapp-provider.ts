@@ -14,6 +14,17 @@ type InboundHandler = (
   kind: InboundKind,
 ) => Promise<void>;
 type VoiceTranscriber = (audio: Buffer, mime: string) => Promise<string>;
+type HistoryHandler = (
+  profileId: string,
+  jid: string,
+  name: string | null,
+  text: string,
+  waMessageId: string | null,
+  raw: unknown,
+  kind: InboundKind,
+  fromMe: boolean,
+  createdAt: string | null,
+) => Promise<void>;
 
 type ConnectionAccount = { id: string; number: string | null; name: string | null };
 type ConnectionState = {
@@ -215,6 +226,10 @@ export function setInboundHandler(handler: InboundHandler | null) {
 export function setVoiceTranscriber(handler: VoiceTranscriber | null) {
   voiceTranscriber = handler;
   if (!isEvolution()) baileys.setVoiceTranscriber(handler as any);
+}
+
+export function setHistoryHandler(handler: HistoryHandler | null) {
+  if (!isEvolution()) baileys.setHistoryHandler(handler as any);
 }
 
 export async function connectWhatsApp(profile: Profile): Promise<void> {
