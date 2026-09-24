@@ -736,8 +736,10 @@ void getVapidPublicKey().catch((error) => app.log.warn({ err: error }, 'Push ini
 await app.listen({ port, host: '0.0.0.0' });
 
 if (process.env.RUN_TRAINING_SIMULATION === 'true') {
-  const simulationRunId = String(process.env.SIMULATION_RUN_ID || new Date().toISOString());
+  const simulationRunId = String(process.env.SIMULATION_RUN_ID || new Date().toISOString()).replace(/[^a-zA-Z0-9._-]+/g, '-');
   const simulationProfileId = String(process.env.SIMULATION_PROFILE_ID || '').trim();
+  const simulationLimit = Math.max(1, Math.min(30, Number(process.env.SIMULATION_LIMIT || 30)));
+  const persistSimulation = process.env.SIMULATION_PERSIST === 'true';
   setTimeout(async () => {
     if (!simulationProfileId) {
       app.log.error({ simulationRunId }, 'TRAINING_SIMULATION_SKIPPED: SIMULATION_PROFILE_ID missing');
@@ -749,7 +751,44 @@ if (process.env.RUN_TRAINING_SIMULATION === 'true') {
         await settings() as LlmSettings,
         profile,
         (row) => app.log.warn({ simulationRunId, ...row }, 'TRAINING_SIMULATION_CASE'),
+        simulationLimit,
       );
+
+      if (persistSimulation) {
+        let index = 0;
+        for (const row of result.cases) {
+          index += 1;
+          const last = row.transcript.at(-1)?.text || row.id;
+          const timestamp = new Date(Date.now() + index * 1000).toISOString();
+          const conversation = (await gateway<{ data: Conversation }>('upsert_conversation', {
+            data: {
+              profile_id: profile.id,
+              wa_jid: `sim-${simulationRunId}-${row.id}@simulation.invalid`,
+              contact_name: `SIM ${row.persona === 'cambodia' ? 'Cambodia' : 'Kenya'} · ${String(index).padStart(2, '0')} · ${row.id}`,
+              state: row.hotAtTurn ? 'HOT' : 'CLOSED',
+              hot_score: row.hotAtTurn ? 0.9 : null,
+              hot_reason: row.hotAtTurn ? `Simulation: HOT ab Turn ${row.hotAtTurn}` : row.error,
+              ai_turns: row.transcript.filter((message) => message.sender === 'ai').length,
+              unread_count: 0,
+              last_message_preview: last.slice(0, 180),
+              last_message_at: timestamp,
+            },
+          })).data;
+          for (let i = 0; i < row.transcript.length; i += 1) {
+            const message = row.transcript[i];
+            await addMessage({
+              conversation_id: conversation.id,
+              direction: message.sender === 'lead' ? 'in' : 'out',
+              sender: message.sender,
+              kind: 'text',
+              text: message.text,
+              created_at: new Date(Date.now() + index * 1000 + i * 100).toISOString(),
+            });
+          }
+        }
+        app.log.warn({ simulationRunId, persisted: result.cases.length, profileId: profile.id }, 'TRAINING_SIMULATION_PERSISTED');
+      }
+
       app.log.warn({ simulationRunId, result }, 'TRAINING_SIMULATION_COMPLETE');
     } catch (error) {
       app.log.error({
