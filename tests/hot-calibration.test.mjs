@@ -91,3 +91,31 @@ test('hesitation stops confirmation pressure', async () => {
   assert.match(result.reply, /kein stress|sicher bist/i);
   assert.doesNotMatch(result.reply, /bestätigung/i);
 });
+
+
+test('price question returns configured price fact before next slot', async () => {
+  const pricedProfile = { ...profile, price_text: 'Ab 80 € / 60 Min.' };
+  const result = await qualifyLead({}, pricedProfile, conversation, [
+    m('lead', 'Was kostet eine Stunde?', 1),
+  ]);
+  assert.equal(result.hot, false);
+  assert.match(result.reply, /80/);
+  assert.match(result.reply, /wann/i);
+});
+
+test('price question never invents a missing price', async () => {
+  const result = await qualifyLead({}, profile, conversation, [
+    m('lead', 'Was kostet 30 Minuten?', 1),
+  ]);
+  assert.equal(result.hot, false);
+  assert.match(result.reply, /kein Preis hinterlegt/i);
+});
+
+test('vague later intent asks for a concrete clock time first', async () => {
+  const result = await qualifyLead({}, profile, conversation, [
+    m('lead', 'Ich könnte später', 1),
+  ]);
+  assert.equal(result.hot, false);
+  assert.match(result.reply, /Uhrzeit/i);
+  assert.doesNotMatch(result.reply, /wie lange/i);
+});
