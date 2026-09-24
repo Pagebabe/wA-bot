@@ -1,5 +1,6 @@
 import type { Conversation, Profile, StoredMessage } from './store.js';
 import { buildSystemPrompt } from './chat-policy.js';
+import { buildTrainingGuidance } from './training-patterns.js';
 
 export type LlmSettings = {
   llm_base_url?: string | null;
@@ -78,7 +79,7 @@ export async function qualifyLead(
   if (!apiKey || !model || !base) throw new Error('LLM is not configured');
 
   const transcript = messages.slice(-18).map((m) => `${m.sender}: ${m.text || `[${m.kind}]`}`).join('\n');
-  const system = buildSystemPrompt(profile);
+  const system = [buildSystemPrompt(profile), buildTrainingGuidance(profile, messages)].join('\n\n');
 
   const response = await fetchLlm(`${normalizeBaseUrl(base)}/chat/completions`, {
     method: 'POST',
