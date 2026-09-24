@@ -32,7 +32,7 @@ test('real browser: user can run AI playground from settings', async () => {
   });
   await new Promise(r=>http.listen(0,'127.0.0.1',r));
   const port=http.address().port;
-  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium-browser',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':'/usr/bin/chromium-browser'),headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
   const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   const errors=[]; page.on('pageerror',e=>errors.push(e.message));
   try{

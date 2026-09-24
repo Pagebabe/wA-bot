@@ -91,8 +91,8 @@ async function messages(conversationId: string): Promise<StoredMessage[]> {
 function safeSettings(raw: any) {
   return {
     app_name: raw?.app_name || 'wA-bot',
-    llm_base_url: raw?.llm_base_url || 'https://api.openai.com',
-    llm_model: raw?.llm_model || 'gpt-5-mini',
+    llm_base_url: raw?.llm_base_url || 'https://generativelanguage.googleapis.com/v1beta/openai/',
+    llm_model: raw?.llm_model || 'gemini-3.5-flash-lite',
     has_llm_key: Boolean(raw?.llm_api_key_encrypted),
     llm_key_source: process.env.LLM_API_KEY ? 'environment' : 'database',
     voice_enabled: Boolean(raw?.voice_enabled),
@@ -297,8 +297,8 @@ app.post('/api/settings', async (request) => {
   const old = await settings();
   const patch: any = {
     app_name: body.app_name || old.app_name || 'wA-bot',
-    llm_base_url: body.llm_base_url || old.llm_base_url || 'https://api.openai.com',
-    llm_model: body.llm_model || old.llm_model || 'gpt-5-mini',
+    llm_base_url: body.llm_base_url || old.llm_base_url || 'https://generativelanguage.googleapis.com/v1beta/openai/',
+    llm_model: body.llm_model || old.llm_model || 'gemini-3.5-flash-lite',
     voice_enabled: Boolean(body.voice_enabled),
     voice_provider: body.voice_provider || old.voice_provider || 'same-api',
     voice_model: body.voice_model || old.voice_model || 'gpt-4o-mini-tts',

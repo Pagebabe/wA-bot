@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 
 const html = readFileSync('public/index.html', 'utf8');
@@ -82,7 +82,15 @@ async function startMock() {
 }
 
 async function launchPage(base, viewport) {
-  const executablePath = process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser';
+  const candidates = [
+    process.env.CHROMIUM_PATH,
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+  ].filter(Boolean);
+  const executablePath = candidates.find((candidate) => existsSync(candidate));
+  if (!executablePath) throw new Error(`No Chromium-compatible browser found. Checked: ${candidates.join(', ')}`);
   const browser = await chromium.launch({ executablePath, headless:true, args:['--no-sandbox','--disable-dev-shm-usage'] });
   const page = await browser.newPage({ viewport });
   const consoleErrors=[]; const pageErrors=[]; const failed=[];
@@ -161,7 +169,7 @@ test('real browser: HOT takeover, composer, return-to-AI and close', async () =>
 test('real browser: settings test/save and demo-HOT', async () => {
   const mock=await startMock(); const ctx=await launchPage(mock.base,{width:1440,height:900}); const {page,browser}=ctx;
   try {
-    await page.getByTitle('Einstellungen').first().click(); await page.getByRole('button',{name:'Verbindung testen'}).click(); await page.waitForTimeout(60); assert.match(await page.locator('#testResult').textContent(),/Verbindung funktioniert/);
+    await page.getByTitle('Einstellungen').first().click(); await page.getByRole('button',{name:'Verbindung testen'}).click(); await page.waitForFunction(()=>document.querySelector('#testResult')?.textContent?.includes('Verbindung funktioniert')); assert.match(await page.locator('#testResult').textContent(),/Verbindung funktioniert/);
     await page.locator('#sDisclosure').click(); await page.getByRole('button',{name:'Speichern'}).click(); await page.waitForTimeout(60); assert.equal(await page.locator('#settingsModal').isVisible(),false);
     await page.getByTitle('Einstellungen').first().click(); await page.getByRole('button',{name:/Demo-HOT/}).click(); await page.waitForTimeout(80); assert.equal(await page.locator('#fHot').evaluate(e=>e.classList.contains('active')),true); assert.ok(await page.locator('.chatRow').count()>=2);
     await noRuntimeErrors(ctx);

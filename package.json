@@ -9,7 +9,7 @@
     "start": "node dist/server.js",
     "typecheck": "node scripts/prepare-inbound-voice-reply.mjs && tsc -p tsconfig.json --noEmit",
     "pretest": "npm run build",
-    "test": "node scripts/dependency-audit.mjs && node --test tests/*.test.mjs"
+    "test": "node scripts/dependency-audit.mjs && node --test --test-concurrency=1 tests/*.test.mjs"
   },
   "engines": {
     "node": ">=22"

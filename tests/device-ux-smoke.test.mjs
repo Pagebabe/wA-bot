@@ -31,7 +31,7 @@ async function startMock(){
 }
 
 async function launchPage(base,viewport){
-  const executablePath=process.env.CHROMIUM_PATH||'/usr/bin/chromium-browser';
+  const executablePath=process.env.CHROMIUM_PATH||(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':'/usr/bin/chromium-browser');
   const browser=await chromium.launch({executablePath,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
   const page=await browser.newPage({viewport}); const consoleErrors=[];const pageErrors=[];const failed=[];
   page.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text())}); page.on('pageerror',e=>pageErrors.push(e.message)); page.on('requestfailed',r=>failed.push(`${r.method()} ${r.url()} ${r.failure()?.errorText||''}`)); page.on('dialog',d=>d.accept());

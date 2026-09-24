@@ -116,7 +116,7 @@ async function assertViewportLayout(page, label) {
 for (const [width, height] of [[1728, 928], [1440, 800], [1280, 700], [1024, 700]]) {
   test(`chat stays inside viewport at ${width}x${height}`, async () => {
     const mock = await startMock();
-    const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser', headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : '/usr/bin/chromium-browser'), headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
     const page = await browser.newPage({ viewport: { width, height } });
     try {
       await page.goto(mock.base + '/', { waitUntil: 'networkidle' });
