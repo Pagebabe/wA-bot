@@ -217,8 +217,10 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw, kind) => 
     const currentSettings = await settings();
     const result = await qualifyLead(currentSettings as LlmSettings, profile, conversation, allMessages);
     const latestConversation = (await conversations(profileId)).find((x) => x.id === conversation.id);
-    const stateAllowed = latestConversation?.state === 'AI_ACTIVE' || (humanGate && latestConversation?.state === 'PAUSED');
-    if (!latestConversation || !stateAllowed) {
+    if (
+      !latestConversation
+      || (latestConversation.state !== 'AI_ACTIVE' && !(humanGate && latestConversation.state === 'PAUSED'))
+    ) {
       app.log.info({ profileId, conversationId: conversation.id, state: latestConversation?.state }, 'AI result discarded after ownership/state changed');
       return;
     }
