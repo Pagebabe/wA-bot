@@ -2372,7 +2372,7 @@
           : "KI-Vorschlag prüfen und bei Bedarf bearbeiten";
         $("reviewHotBtn").style.display = hot ? "inline-block" : "none";
         $("reviewApproveBtn").style.display =
-          !hot || Boolean((c.pending_ai_reply || "").trim()) ? "inline-block" : "none";
+          Boolean((c.pending_ai_reply || "").trim()) ? "inline-block" : "none";
       }
 
       async function approveReview(action) {
