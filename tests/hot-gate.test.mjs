@@ -39,10 +39,10 @@ function m(id, text) {
   };
 }
 
-test('time plus duration becomes HOT without an LLM call', async () => {
+test('time plus duration asks for confirmation without an LLM call', async () => {
   const result = await qualifyLead({}, profile, conversation, [m('1', 'Heute 19:30'), m('2', '30 Minuten')]);
-  assert.equal(result.hot, true);
-  assert.equal(result.reply, '');
+  assert.equal(result.hot, false);
+  assert.match(result.reply, /Bestätigung/i);
 });
 
 test('time without duration asks only for duration without an LLM call', async () => {
