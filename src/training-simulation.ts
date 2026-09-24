@@ -64,7 +64,7 @@ export function buildSimulationScenarios(): SimulationScenario[] {
     ['spaeter-abbruch', 'aborted', ['Ich könnte später', '21:30', '30 Minuten', 'Wird nichts heute.']],
     ['reschedule-abbruch', 'aborted', ['Heute 18:30', '30 Minuten', 'Kann ich doch 19:00?', 'Doch nicht.']],
     ['dauer-abbruch', 'aborted', ['30 Minuten', 'Heute 22:00', 'Nein danke.']],
-    ['nach-confirm-absage', 'aborted', ['Heute 20 Uhr', '60 Minuten', 'Ja ich komme', 'Sorry, kann doch nicht.']],
+    ['nach-bedenkzeit-absage', 'aborted', ['Heute 20 Uhr', '60 Minuten', 'Ich überlege noch.', 'Sorry, kann doch nicht.']],
 
     ['nur-preis-stall', 'stalled', ['Was kostet 30 Minuten?']],
     ['nur-bild-stall', 'stalled', ['Hast du ein Foto?']],
