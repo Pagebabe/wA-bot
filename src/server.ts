@@ -144,6 +144,14 @@ setHistoryHandler(async (profileId, jid, name, text, waMessageId, raw, kind, fro
     },
   })).data;
 
+  if (waMessageId) {
+    const duplicate = (await messages(conversation.id)).some((message) => message.wa_message_id === waMessageId);
+    if (duplicate) {
+      app.log.info({ profileId, conversationId: conversation.id, waMessageId }, 'Duplicate WhatsApp history message ignored');
+      return;
+    }
+  }
+
   await addMessage({
     conversation_id: conversation.id,
     wa_message_id: waMessageId,
