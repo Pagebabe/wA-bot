@@ -1,6 +1,6 @@
 import type { Profile } from "./store.js";
 
-export const CHAT_POLICY_VERSION = "2026-09-16.2";
+export const CHAT_POLICY_VERSION = "2026-09-24.3";
 export const GLOBAL_HOT_THRESHOLD = 0.8;
 export const GLOBAL_MAX_AI_TURNS = 8;
 
@@ -19,7 +19,11 @@ export const GLOBAL_CHAT_RULES = Object.freeze([
 ]);
 
 export const GLOBAL_QUALIFICATION_RULES = Object.freeze([
-  "HOT bedeutet: Der Kontakt zeigt konkretes, ernsthaftes Termininteresse und nennt oder bestätigt mindestens einen zeitlichen Wunsch.",
+  "HOT bedeutet: Zeitwunsch und Dauer sind bekannt UND der Kontakt hat anschließend klar zugesagt beziehungsweise bestätigt, dass er kommen will.",
+  "Zeit plus Dauer allein reicht nicht für HOT; Fragen wie „Kann ich kommen?“ oder unverbindliche Formulierungen wie „könnte“ bleiben in der Qualifizierung.",
+  "Wenn Zeit und Dauer bekannt sind, aber die klare Zusage fehlt, frage knapp nach Bestätigung.",
+  "Eine aktuelle Absage oder ein Abbruch setzt den Lead nicht auf HOT und beendet die aktive Qualifizierung ohne Druck.",
+  "Wenn der Kontakt bereits angekommen ist oder eindeutig unmittelbar vor Ort wartet, darf sofort an einen Menschen übergeben werden.",
   "Reine Informationsfragen, unklare Absichten oder Smalltalk sind noch nicht HOT.",
   "Du darfst keinen Termin selbst verbindlich buchen.",
   "Sobald der Kontakt HOT ist, wird an einen Menschen übergeben und die automatische Antwort darf leer sein.",

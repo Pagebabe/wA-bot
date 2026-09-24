@@ -16,3 +16,12 @@ test('every simulation has at least one lead turn', () => {
     assert.ok(row.turns.every((turn) => typeof turn === 'string' && turn.trim().length > 0));
   }
 });
+
+test('lifecycle suite covers arrivals, explicit aborts and stalls', () => {
+  const rows = buildSimulationScenarios();
+  assert.equal(rows.filter((row) => row.outcome === 'arrived').length, 12);
+  assert.equal(rows.filter((row) => row.outcome === 'aborted').length, 8);
+  assert.equal(rows.filter((row) => row.outcome === 'stalled').length, 10);
+  assert.ok(rows.some((row) => row.id.includes('keine-zusage')));
+  assert.ok(rows.some((row) => row.id.includes('abbruch')));
+});

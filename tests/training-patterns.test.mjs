@@ -12,7 +12,7 @@ test('training router recognizes the dominant historical chat intents', () => {
   assert.ok(detectLeadIntents('Kannst du ein Foto schicken?').includes('media'));
 });
 
-test('time plus duration is ready for human handoff', () => {
+test('time plus duration still needs explicit confirmation before HOT', () => {
   const messages = [
     { sender: 'lead', text: 'Heute um 19:30', kind: 'text' },
     { sender: 'lead', text: '30 Minuten', kind: 'text' },
@@ -20,7 +20,28 @@ test('time plus duration is ready for human handoff', () => {
   const result = analyzeTrainingSignals(messages);
   assert.equal(result.hasTemporalWish, true);
   assert.equal(result.hasDuration, true);
-  assert.equal(result.nextMissing, null);
+  assert.equal(result.hasActiveCommitment, false);
+  assert.equal(result.nextMissing, 'confirmation');
+});
+
+test('explicit confirmation activates commitment and current abort cancels it', () => {
+  const confirmed = analyzeTrainingSignals([
+    { sender: 'lead', text: 'Heute um 19:30', kind: 'text' },
+    { sender: 'lead', text: '30 Minuten', kind: 'text' },
+    { sender: 'ai', text: 'Soll ich das so zur Bestätigung weitergeben?', kind: 'text' },
+    { sender: 'lead', text: 'Ja', kind: 'text' },
+  ]);
+  assert.equal(confirmed.hasActiveCommitment, true);
+  assert.equal(confirmed.nextMissing, null);
+
+  const aborted = analyzeTrainingSignals([
+    { sender: 'lead', text: 'Heute um 19:30', kind: 'text' },
+    { sender: 'lead', text: '30 Minuten', kind: 'text' },
+    { sender: 'lead', text: 'Ja ich komme', kind: 'text' },
+    { sender: 'lead', text: 'Doch nicht, sorry', kind: 'text' },
+  ]);
+  assert.equal(aborted.abortNow, true);
+  assert.equal(aborted.hasActiveCommitment, false);
 });
 
 test('guidance uses profile facts and never treats history as a facts source', () => {
@@ -35,4 +56,5 @@ test('guidance uses profile facts and never treats history as a facts source', (
   assert.match(guidance, /Historische Muster sind nur Ablaufhilfe, niemals Faktenquelle/);
   assert.match(guidance, /30 Minuten: 80/);
   assert.match(guidance, /Nächster fehlender Slot: Zeitwunsch/);
+  assert.match(guidance, /Zeitwunsch plus Dauer allein reicht NICHT für HOT/);
 });

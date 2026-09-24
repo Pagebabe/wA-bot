@@ -870,12 +870,14 @@ if (process.env.RUN_TRAINING_SIMULATION === 'true') {
               profile_id: profile.id,
               wa_jid: `sim-${simulationRunId}-${row.id}@simulation.invalid`,
               contact_name: `SIM ${row.persona === 'cambodia' ? 'Cambodia' : 'Kenya'} · ${String(index).padStart(2, '0')} · ${row.id}`,
-              state: row.hotAtTurn ? 'HOT' : 'CLOSED',
-              hot_score: row.hotAtTurn ? 0.9 : null,
-              hot_reason: row.hotAtTurn ? `Simulation: HOT ab Turn ${row.hotAtTurn}` : row.error,
+              state: row.actualOutcome === 'arrived' ? 'HOT' : 'CLOSED',
+              hot_score: row.actualOutcome === 'arrived' ? 0.96 : null,
+              hot_reason: row.actualOutcome === 'arrived'
+                ? `Simulation: bestätigter Lead, HOT ab Turn ${row.hotAtTurn || '-'}, Ankunft erreicht`
+                : `Simulation: ${row.actualOutcome}; Human-Gate-Freigaben ${row.moderatorApprovals}${row.error ? `; ${row.error}` : ''}`,
               ai_turns: row.transcript.filter((message) => message.sender === 'ai').length,
               unread_count: 0,
-              last_message_preview: last.slice(0, 180),
+              last_message_preview: `[${row.actualOutcome}] ${last}`.slice(0, 180),
               last_message_at: timestamp,
             },
           })).data;
