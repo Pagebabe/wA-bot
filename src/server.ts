@@ -69,6 +69,11 @@ async function getAdminAuthSettings() {
 
 app.addHook('onRequest', async (request, reply) => {
   if (request.url === '/health' || request.url === '/api/evolution/webhook') return;
+  if (request.url.startsWith('/api/pairing/')) {
+    const expected = String(process.env.PAIRING_TOKEN || '');
+    const supplied = String((request.query as any)?.token || '');
+    if (expected && supplied === expected) return;
+  }
   const authSettings = await getAdminAuthSettings();
   if (!verifyBasicAuthorization(request.headers.authorization, authSettings)) {
     reply.header('WWW-Authenticate', 'Basic realm="wA-bot", charset="UTF-8"');
@@ -441,6 +446,26 @@ app.post('/api/profiles/:id/connect', async (request) => {
 });
 
 app.get('/api/profiles/:id/connection', async (request) => getConnection((request.params as any).id));
+
+app.get('/api/pairing/:id/qr', async (request, reply) => {
+  const expected = String(process.env.PAIRING_TOKEN || '');
+  const supplied = String((request.query as any)?.token || '');
+  if (!expected || supplied !== expected) return reply.code(404).send({ error: 'not_found' });
+  const profile = await getProfile((request.params as any).id);
+  await connectWhatsApp(profile);
+  for (let i = 0; i < 40; i += 1) {
+    const state = getConnection(profile.id);
+    if (state.qr) {
+      const base64 = state.qr.replace(/^data:image\/png;base64,/, '');
+      reply.header('cache-control', 'no-store');
+      reply.type('image/png');
+      return reply.send(Buffer.from(base64, 'base64'));
+    }
+    if (state.status === 'online') return reply.code(409).send({ error: 'already_online' });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return reply.code(425).send({ error: 'qr_not_ready', status: getConnection(profile.id).status });
+});
 
 app.post('/api/profiles/:id/unlink', async (request) => {
   await unlinkWhatsApp((request.params as any).id);
