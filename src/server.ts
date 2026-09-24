@@ -11,6 +11,7 @@ import { getVapidPublicKey, notifyHotLead, savePushSubscription } from './push.j
 import { persistInboundMessage } from './inbound-message.js';
 import { buildTrainingConversation, toJsonl, waLinkFromJid } from './training-export.js';
 import { runTrainingSimulation } from './training-simulation.js';
+import { clearPendingReviewPatch, isHumanGateEnabled, pendingReviewPatch, reviewMatches } from './human-gate.js';
 import {
   connectWhatsApp,
   getConnection,
@@ -110,6 +111,7 @@ function safeSettings(raw: any) {
     has_stt_key: Boolean(raw?.stt_api_key),
     chat_policy_version: CHAT_POLICY_VERSION,
     ai_disclosure_enabled: raw?.ai_disclosure_enabled !== false,
+    human_gate_enabled: isHumanGateEnabled(),
   };
 }
 
@@ -180,6 +182,7 @@ setHistoryHandler(async (profileId, jid, name, text, waMessageId, raw, kind, fro
 
 setInboundHandler(async (profileId, jid, name, text, waMessageId, raw, kind) => {
   const profile = await getProfile(profileId);
+  const humanGate = isHumanGateEnabled();
   const existing = (await conversations(profileId)).find((x) => x.wa_jid === jid);
   if (existing && waMessageId) {
     const duplicate = (await messages(existing.id)).some((m) => m.wa_message_id === waMessageId);
@@ -206,23 +209,60 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw, kind) => 
     now,
   }) as Conversation;
 
-  if (!profile.bot_enabled || ['HOT', 'HUMAN_ACTIVE', 'CLOSED', 'PAUSED'].includes(conversation.state)) return;
+  if (!profile.bot_enabled || ['HOT', 'HUMAN_ACTIVE', 'CLOSED'].includes(conversation.state)) return;
+  if (conversation.state === 'PAUSED' && !humanGate) return;
 
   try {
     const allMessages = await messages(conversation.id);
     const currentSettings = await settings();
     const result = await qualifyLead(currentSettings as LlmSettings, profile, conversation, allMessages);
     const latestConversation = (await conversations(profileId)).find((x) => x.id === conversation.id);
-    if (!latestConversation || latestConversation.state !== 'AI_ACTIVE') {
+    const stateAllowed = latestConversation?.state === 'AI_ACTIVE' || (humanGate && latestConversation?.state === 'PAUSED');
+    if (!latestConversation || !stateAllowed) {
       app.log.info({ profileId, conversationId: conversation.id, state: latestConversation?.state }, 'AI result discarded after ownership/state changed');
       return;
     }
     conversation = latestConversation;
     const turn = Number(conversation.ai_turns || 0) + 1;
     const forceHuman = turn >= GLOBAL_MAX_AI_TURNS;
+    const hotReason = forceHuman ? 'Maximale KI-Runden erreicht – manuelle Übernahme erforderlich.' : result.reason;
+
+    let outgoingText = result.reply;
+    const firstAi = !allMessages.some((m) => m.sender === 'ai');
+    if (outgoingText && firstAi && currentSettings.ai_disclosure_enabled !== false) {
+      outgoingText = `Hinweis: Du schreibst gerade mit einem KI-Assistenten. ${outgoingText}`;
+    }
+
+    if (humanGate) {
+      const reviewCreatedAt = new Date().toISOString();
+      const candidate = {
+        reply: outgoingText || '',
+        hot: Boolean(result.hot || forceHuman),
+        score: forceHuman ? Math.max(result.score, 0.75) : result.score,
+        reason: hotReason || '',
+      };
+      await updateConversation(conversation.id, {
+        ...pendingReviewPatch(candidate, reviewCreatedAt),
+        hot_score: candidate.score,
+        hot_reason: candidate.reason,
+      });
+      await gateway('add_event', {
+        data: {
+          profile_id: profileId,
+          conversation_id: conversation.id,
+          type: 'AI_REVIEW_REQUIRED',
+          payload: {
+            hot: candidate.hot,
+            score: candidate.score,
+            reason: candidate.reason,
+            has_reply: Boolean(candidate.reply),
+          },
+        },
+      });
+      return;
+    }
 
     if (result.hot || forceHuman) {
-      const hotReason = forceHuman ? 'Maximale KI-Runden erreicht – manuelle Übernahme erforderlich.' : result.reason;
       await updateConversation(conversation.id, {
         state: 'HOT',
         hot_score: forceHuman ? Math.max(result.score, 0.75) : result.score,
@@ -241,12 +281,7 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw, kind) => 
       return;
     }
 
-    if (result.reply) {
-      let outgoingText = result.reply;
-      const firstAi = !allMessages.some((m) => m.sender === 'ai');
-      if (firstAi && currentSettings.ai_disclosure_enabled !== false) {
-        outgoingText = `Hinweis: Du schreibst gerade mit einem KI-Assistenten. ${outgoingText}`;
-      }
+    if (outgoingText) {
       let sentId: string | null = null;
       let outgoingKind: 'text' | 'voice' = 'text';
       if (kind === 'voice' && currentSettings.voice_enabled) {
@@ -520,11 +555,79 @@ app.get('/api/profiles/:id/training-export', async (request, reply) => {
 
 app.get('/api/conversations/:id/messages', async (request) => ({ data: await messages((request.params as any).id) }));
 
+app.post('/api/conversations/:id/review/approve', async (request, reply) => {
+  const id = (request.params as any).id;
+  const body: any = request.body || {};
+  const current = (await conversations()).find((x) => x.id === id);
+  if (!current) return reply.code(404).send({ error: 'Chat nicht gefunden' });
+  if (!reviewMatches(current, String(body.expected_created_at || '') || null)) {
+    return reply.code(409).send({ error: 'Der KI-Vorschlag ist nicht mehr aktuell. Bitte Chat neu laden.' });
+  }
+
+  const editedText = Object.prototype.hasOwnProperty.call(body, 'text')
+    ? String(body.text || '').trim()
+    : String(current.pending_ai_reply || '').trim();
+  const pendingHot = Boolean(current.pending_ai_hot);
+  const action = String(body.action || 'send');
+
+  if (action === 'hot') {
+    if (!pendingHot) return reply.code(409).send({ error: 'Dieser Vorschlag ist kein HOT-Kandidat' });
+    const updated = await updateConversation(id, {
+      state: 'HOT',
+      hot_score: current.pending_ai_score ?? current.hot_score ?? 0,
+      hot_reason: current.pending_ai_reason || current.hot_reason || 'Vom Moderator als HOT bestätigt.',
+      unread_count: 0,
+      ...clearPendingReviewPatch(),
+    });
+    await gateway('add_event', {
+      data: { profile_id: current.profile_id, conversation_id: id, type: 'HUMAN_GATE_HOT_APPROVED', payload: {} },
+    });
+    void notifyHotLead({
+      conversationId: current.id,
+      contactName: current.contact_name || 'Neuer Lead',
+      profileName: (await getProfile(current.profile_id)).name,
+      preview: current.last_message_preview || '',
+    }).catch((error) => app.log.warn({ err: error }, 'Push notification failed'));
+    return { ok: true, action: 'hot', conversation: updated };
+  }
+
+  if (!editedText) return reply.code(400).send({ error: 'Freizugebende Antwort ist leer' });
+
+  const sentId = await sendText(current.profile_id, current.wa_jid, editedText);
+  await addMessage({
+    conversation_id: id,
+    wa_message_id: sentId,
+    direction: 'out',
+    sender: 'ai',
+    kind: 'text',
+    text: editedText,
+  });
+  const updated = await updateConversation(id, {
+    state: 'AI_ACTIVE',
+    ai_turns: Number(current.ai_turns || 0) + 1,
+    unread_count: 0,
+    last_message_preview: editedText.slice(0, 180),
+    last_message_at: new Date().toISOString(),
+    hot_score: null,
+    hot_reason: null,
+    ...clearPendingReviewPatch(),
+  });
+  await gateway('add_event', {
+    data: {
+      profile_id: current.profile_id,
+      conversation_id: id,
+      type: 'HUMAN_GATE_REPLY_APPROVED',
+      payload: { edited: editedText !== String(current.pending_ai_reply || '').trim() },
+    },
+  });
+  return { ok: true, action: 'sent', conversation: updated };
+});
+
 app.post('/api/conversations/:id/takeover', async (request, reply) => {
   const id = (request.params as any).id;
   const current = (await conversations()).find((x) => x.id === id);
   if (!current) return reply.code(404).send({ error: 'Chat nicht gefunden' });
-  const updated = await updateConversation(id, { state: 'HUMAN_ACTIVE', unread_count: 0 });
+  const updated = await updateConversation(id, { state: 'HUMAN_ACTIVE', unread_count: 0, ...clearPendingReviewPatch() });
   await gateway('add_event', { data: { profile_id: current.profile_id, conversation_id: id, type: 'HUMAN_TAKEOVER', payload: {} } });
   return updated;
 });
@@ -533,7 +636,7 @@ app.post('/api/conversations/:id/return-ai', async (request, reply) => {
   const id = (request.params as any).id;
   const current = (await conversations()).find((x) => x.id === id);
   if (!current) return reply.code(404).send({ error: 'Chat nicht gefunden' });
-  const updated = await updateConversation(id, { state: 'AI_ACTIVE', unread_count: 0, hot_reason: null, hot_score: null });
+  const updated = await updateConversation(id, { state: 'AI_ACTIVE', unread_count: 0, hot_reason: null, hot_score: null, ...clearPendingReviewPatch() });
   await gateway('add_event', { data: { profile_id: current.profile_id, conversation_id: id, type: 'RETURN_TO_AI', payload: {} } });
   return updated;
 });
@@ -542,7 +645,7 @@ app.post('/api/conversations/:id/close', async (request, reply) => {
   const id = (request.params as any).id;
   const current = (await conversations()).find((x) => x.id === id);
   if (!current) return reply.code(404).send({ error: 'Chat nicht gefunden' });
-  const updated = await updateConversation(id, { state: 'CLOSED', unread_count: 0 });
+  const updated = await updateConversation(id, { state: 'CLOSED', unread_count: 0, ...clearPendingReviewPatch() });
   await gateway('add_event', { data: { profile_id: current.profile_id, conversation_id: id, type: 'CLOSED', payload: {} } });
   return updated;
 });

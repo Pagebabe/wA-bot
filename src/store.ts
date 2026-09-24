@@ -62,6 +62,11 @@ export type Conversation = {
   unread_count: number;
   last_message_preview?: string | null;
   last_message_at?: string | null;
+  pending_ai_reply?: string | null;
+  pending_ai_hot?: boolean | null;
+  pending_ai_score?: number | null;
+  pending_ai_reason?: string | null;
+  pending_ai_created_at?: string | null;
 };
 
 export type StoredMessage = {

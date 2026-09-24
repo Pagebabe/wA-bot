@@ -490,6 +490,66 @@
         justify-content: space-between;
         gap: 10px;
       }
+      .reviewGate {
+        display: none;
+        flex: 0 0 auto;
+        margin: 10px 12px 0;
+        padding: 11px;
+        border: 1px solid #5b5130;
+        border-radius: 10px;
+        background: #2b2818;
+        color: #f4e8b4;
+        gap: 8px;
+      }
+      .reviewGate.show {
+        display: grid;
+      }
+      .reviewGateHead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .reviewGateMeta {
+        font-size: 10px;
+        color: #c9bc82;
+      }
+      .reviewGate textarea {
+        width: 100%;
+        min-height: 64px;
+        resize: vertical;
+        border: 1px solid #5f5837;
+        border-radius: 8px;
+        background: #17170f;
+        color: var(--text);
+        padding: 9px 10px;
+      }
+      .reviewGateActions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+      }
+      .reviewGateActions button {
+        border: 1px solid #625a35;
+        border-radius: 8px;
+        padding: 8px 10px;
+        background: #201f14;
+        color: #f4e8b4;
+      }
+      .reviewGateActions .approve {
+        background: var(--green);
+        border-color: var(--green);
+        color: #06271f;
+        font-weight: 800;
+      }
+      .reviewGateActions .hot {
+        background: #4a1d24;
+        border-color: #74303c;
+        color: #ffd9dc;
+        font-weight: 800;
+      }
       .composer {
         flex: 0 0 auto;
         width: 100%;
@@ -1436,6 +1496,19 @@
             </button>
           </div>
           <section id="messages" class="messages"></section>
+          <div id="reviewGate" class="reviewGate">
+            <div class="reviewGateHead">
+              <span id="reviewGateTitle">🛡 Human Gate · Freigabe erforderlich</span>
+              <span id="reviewGateScore" class="reviewGateMeta"></span>
+            </div>
+            <div id="reviewGateReason" class="reviewGateMeta"></div>
+            <textarea id="reviewDraft" placeholder="KI-Vorschlag prüfen und bei Bedarf bearbeiten"></textarea>
+            <div class="reviewGateActions">
+              <button id="reviewApproveBtn" class="approve" type="button" onclick="approveReview('send')">✓ Antwort freigeben</button>
+              <button id="reviewHotBtn" class="hot" type="button" onclick="approveReview('hot')">🔥 HOT bestätigen</button>
+              <button type="button" onclick="takeover()">✋ Übernehmen / selbst antworten</button>
+            </div>
+          </div>
           <div id="quickBar" class="quickBar"></div>
           <div id="mobileTakeover" class="mobileTakeover">
             <div class="mobileTakeoverCopy">
@@ -2221,7 +2294,9 @@
                 ? "HOT"
                 : c.state === "HUMAN_ACTIVE"
                   ? "Meine"
-                  : "KI";
+                  : c.state === "PAUSED" && c.pending_ai_created_at
+                    ? "PRÜFEN"
+                    : "KI";
               return `<button class="chatRow ${state.currentChat?.id === c.id ? "active" : ""}" onclick="openChat('${c.id}')"><div class="avatar">${esc(initials(c.contact_name || c.wa_jid))}</div><div class="rowMain"><div class="rowTop"><span class="rowName">${esc(c.contact_name || c.wa_jid)}</span><span class="rowTime">${esc(timeAgo(c.last_message_at))}</span></div><div class="rowBottom"><span class="preview">${esc(c.last_message_preview || "Keine Nachricht")}</span><span class="stateTag ${hot ? "hot" : ""}">${esc(label)}</span></div><div style="font-size:10px;color:#667781;margin-top:2px">${esc(p?.name || "Profil")}</div></div><div>${c.unread_count > 0 ? `<span class="unread">${c.unread_count}</span>` : ""}</div></button>`;
             })
             .join("") ||
@@ -2251,7 +2326,9 @@
             ? "HOT"
             : c.state === "HUMAN_ACTIVE"
               ? "von dir übernommen"
-              : "KI aktiv");
+              : c.state === "PAUSED" && c.pending_ai_created_at
+                ? "Human Gate · wartet auf Freigabe"
+                : "KI aktiv");
         $("takeBtn").style.display =
           c.state === "HOT" ? "inline-block" : "none";
         $("returnBtn").style.display =
@@ -2269,7 +2346,54 @@
         $("mediaBtn").disabled = false;
         $("locationBtn").disabled = false;
         $("entryPhotoBtn").disabled = false;
+        renderReviewGate();
         renderQuickBar();
+      }
+
+      function renderReviewGate() {
+        const c = state.currentChat;
+        const gate = $("reviewGate");
+        if (!c || !gate) return;
+        const pending = c.state === "PAUSED" && Boolean(c.pending_ai_created_at);
+        gate.classList.toggle("show", pending);
+        if (!pending) return;
+        const hot = Boolean(c.pending_ai_hot);
+        $("reviewGateTitle").textContent = hot
+          ? "🛡 Human Gate · HOT-Kandidat prüfen"
+          : "🛡 Human Gate · Antwort prüfen";
+        $("reviewGateScore").textContent =
+          typeof c.pending_ai_score === "number"
+            ? "Score " + Math.round(c.pending_ai_score * 100) + "%"
+            : "";
+        $("reviewGateReason").textContent = c.pending_ai_reason || "";
+        $("reviewDraft").value = c.pending_ai_reply || "";
+        $("reviewDraft").placeholder = hot
+          ? "Optional: statt HOT-Markierung eine eigene Antwort eingeben"
+          : "KI-Vorschlag prüfen und bei Bedarf bearbeiten";
+        $("reviewHotBtn").style.display = hot ? "inline-block" : "none";
+        $("reviewApproveBtn").style.display =
+          Boolean((c.pending_ai_reply || "").trim()) ? "inline-block" : "none";
+      }
+
+      async function approveReview(action) {
+        if (!state.currentChat?.pending_ai_created_at) return toast("Kein aktueller KI-Vorschlag");
+        const text = $("reviewDraft").value.trim();
+        try {
+          await api("/api/conversations/" + state.currentChat.id + "/review/approve", {
+            method: "POST",
+            body: JSON.stringify({
+              action,
+              text,
+              expected_created_at: state.currentChat.pending_ai_created_at,
+            }),
+          });
+          toast(action === "hot" ? "HOT vom Moderator bestätigt" : "Antwort freigegeben und gesendet");
+          await load();
+          await loadMessages();
+        } catch (e) {
+          toast(e.message);
+          await load();
+        }
       }
       async function loadMessages() {
         if (!state.currentChat) return;
