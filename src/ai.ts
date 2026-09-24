@@ -74,17 +74,33 @@ export async function qualifyLead(
   messages: StoredMessage[],
 ): Promise<Qualification> {
   const signals = analyzeTrainingSignals(messages);
-  if (signals.arrivalNow) {
-    return { reply: '', hot: true, score: 0.98, reason: 'Kontakt ist bereits vor Ort; sofortige Übergabe.' };
+  if (signals.abortNow) {
+    return {
+      reply: 'Alles klar 😊 Melde dich einfach wieder, wenn es für dich passt.',
+      hot: false,
+      score: 0.08,
+      reason: 'Aktuelle Nachricht signalisiert Absage oder Abbruch.',
+    };
   }
-  if (signals.hasTemporalWish && signals.hasDuration) {
-    return { reply: '', hot: true, score: 0.95, reason: 'Zeitwunsch und Dauer sind vorhanden; Übergabe an Menschen.' };
+  if (signals.arrivalNow) {
+    return { reply: '', hot: true, score: 0.99, reason: 'Kontakt ist bereits vor Ort; sofortige Übergabe.' };
+  }
+  if (signals.hasTemporalWish && signals.hasDuration && signals.hasActiveCommitment) {
+    return { reply: '', hot: true, score: 0.96, reason: 'Zeitwunsch, Dauer und klare aktive Zusage sind vorhanden.' };
+  }
+  if (signals.hasTemporalWish && signals.hasDuration && !signals.hasActiveCommitment) {
+    return {
+      reply: 'Perfekt 😊 Soll ich das so zur Bestätigung weitergeben?',
+      hot: false,
+      score: 0.68,
+      reason: 'Zeit und Dauer sind vorhanden, aber eine klare Zusage fehlt noch.',
+    };
   }
   if (signals.hasTemporalWish && !signals.hasDuration) {
-    return { reply: 'Wie lange magst du bleiben? 😊', hot: false, score: 0.55, reason: 'Zeitwunsch vorhanden, Dauer fehlt.' };
+    return { reply: 'Wie lange magst du bleiben? 😊', hot: false, score: 0.5, reason: 'Zeitwunsch vorhanden, Dauer fehlt.' };
   }
   if (!signals.hasTemporalWish && signals.hasDuration) {
-    return { reply: 'Wann magst du kommen? 😊', hot: false, score: 0.5, reason: 'Dauer vorhanden, Zeitwunsch fehlt.' };
+    return { reply: 'Wann magst du kommen? 😊', hot: false, score: 0.45, reason: 'Dauer vorhanden, Zeitwunsch fehlt.' };
   }
 
   const apiKey = settings.llm_api_key_encrypted;
