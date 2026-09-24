@@ -152,7 +152,7 @@ export async function connectWhatsApp(profile: Profile): Promise<void> {
 
   const historyExportProfileId = String(process.env.WHATSAPP_HISTORY_EXPORT_PROFILE_ID || '').trim();
   const syncFullHistory = process.env.WHATSAPP_SYNC_FULL_HISTORY === 'true'
-    || (historyExportProfileId && historyExportProfileId === profile.id);
+    || historyExportProfileId === profile.id;
 
   const socket = makeWASocket({
     auth: state as any,
