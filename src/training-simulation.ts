@@ -16,6 +16,7 @@ export type SimulationCaseResult = {
   eligibleAtTurn: number | null;
   falsePositive: boolean;
   error: string | null;
+  transcript: Array<{ sender: 'lead' | 'ai'; text: string }>;
 };
 
 export type SimulationSummary = {
@@ -88,8 +89,10 @@ export async function runTrainingSimulation(
   settings: LlmSettings,
   profile: Profile,
   onCase?: (row: SimulationCaseResult) => void,
+  limit = 30,
 ): Promise<SimulationSummary> {
-  const scenarios = buildSimulationScenarios();
+  const normalizedLimit = Math.max(1, Math.min(30, Math.floor(Number(limit) || 30)));
+  const scenarios = buildSimulationScenarios().slice(0, normalizedLimit);
   const results: SimulationCaseResult[] = [];
 
   for (const scenario of scenarios) {
@@ -138,7 +141,10 @@ export async function runTrainingSimulation(
     }
 
     const passed = !error && !falsePositive && hotAtTurn !== null && eligibleAtTurn !== null && hotAtTurn >= eligibleAtTurn;
-    const row = { id: scenario.id, persona: scenario.persona, passed, hotAtTurn, eligibleAtTurn, falsePositive, error };
+    const transcript = messages
+      .filter((message) => (message.sender === 'lead' || message.sender === 'ai') && typeof message.text === 'string')
+      .map((message) => ({ sender: message.sender as 'lead' | 'ai', text: String(message.text || '') }));
+    const row = { id: scenario.id, persona: scenario.persona, passed, hotAtTurn, eligibleAtTurn, falsePositive, error, transcript };
     results.push(row);
     onCase?.(row);
   }
