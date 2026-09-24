@@ -1977,7 +1977,7 @@
               ><input id="sDisclosure" type="checkbox" checked />
             </div>
             <div class="switchRow">
-              <span>Sprachmodul aktivieren</span
+              <span>Automatische Voice-Verarbeitung (STT/AI-Voice)</span
               ><input id="sVoiceEnabled" type="checkbox" />
             </div>
             <div class="grid2">
@@ -2831,8 +2831,8 @@
         $("sVoiceModel").value = s.voice_model || "gpt-4o-mini-tts";
         if ($("voiceRuntimeStatus")) {
           $("voiceRuntimeStatus").textContent = s.has_tts_key
-            ? "✅ ElevenLabs Runtime-Secret + Voice-ID aktiv · Voice-Notes können über ElevenLabs beantwortet werden."
-            : "ℹ️ Kein ElevenLabs Runtime-Secret erkannt · TTS nutzt bei Bedarf die OpenAI-kompatible Fallback-API.";
+            ? "✅ ElevenLabs Runtime-Secret + Voice-ID aktiv · manuelles Text→Sprache ist unabhängig von der Voice-Automatik verfügbar."
+            : "ℹ️ Kein ElevenLabs Runtime-Secret erkannt · Text→Sprache versucht die konfigurierte Fallback-API.";
         }
         $("testResult").textContent = s.has_llm_key
           ? envKey

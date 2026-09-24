@@ -43,12 +43,10 @@ server = replaceOnce(
   const c = (await conversations()).find((x) => x.id === id);
   if (!c) return reply.code(404).send({ error: 'Chat nicht gefunden' });
   if (c.state !== 'HUMAN_ACTIVE') return reply.code(409).send({ error: 'Chat muss zuerst übernommen werden' });
-  const profile = await getProfile(c.profile_id);
   const currentSettings = await settings();
-  if (!currentSettings.voice_enabled) return reply.code(409).send({ error: 'Text-zu-Sprache ist in den Einstellungen deaktiviert' });
   try {
-    const audio = await synthesizeVoice(currentSettings as LlmSettings, text, profile.voice_name || 'alloy');
-    const sentId = await sendVoiceAudio(c.profile_id, c.wa_jid, audio, 'audio/mpeg');
+    const audio = await synthesizeVoice(currentSettings as LlmSettings, text, 'alloy');
+    const sentId = await sendVoiceAudio(c.profile_id, c.wa_jid, audio.buffer, audio.mime);
     await addMessage({ conversation_id: id, wa_message_id: sentId, direction: 'out', sender: 'human', kind: 'voice', text });
     await updateConversation(id, { state: 'HUMAN_ACTIVE', unread_count: 0, last_message_preview: ('🎙 ' + text).slice(0, 180), last_message_at: new Date().toISOString() });
     return { ok: true, kind: 'voice' };
