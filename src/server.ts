@@ -857,7 +857,6 @@ app.post('/api/conversations/:id/send-tts', async (request, reply) => {
   if (!c) return reply.code(404).send({ error: 'Chat nicht gefunden' });
   if (c.state !== 'HUMAN_ACTIVE') return reply.code(409).send({ error: 'Chat muss zuerst übernommen werden' });
   const currentSettings = await settings();
-  if (!currentSettings.voice_enabled) return reply.code(409).send({ error: 'Text-zu-Sprache ist in den Einstellungen deaktiviert' });
   try {
     const audio = await synthesizeVoice(currentSettings as LlmSettings, text, 'alloy');
     const sentId = await sendVoiceAudio(c.profile_id, c.wa_jid, audio.buffer, audio.mime);
