@@ -10,6 +10,7 @@ import { verifyBasicAuthorization } from './auth.js';
 import { getVapidPublicKey, notifyHotLead, savePushSubscription } from './push.js';
 import { persistInboundMessage } from './inbound-message.js';
 import { buildTrainingConversation, toJsonl, waLinkFromJid } from './training-export.js';
+import { runTrainingSimulation } from './training-simulation.js';
 import {
   connectWhatsApp,
   getConnection,
@@ -733,3 +734,28 @@ restoreWhatsAppSessions(initialProfiles).catch((error) => app.log.error(error));
 void getVapidPublicKey().catch((error) => app.log.warn({ err: error }, 'Push initialization failed'));
 
 await app.listen({ port, host: '0.0.0.0' });
+
+if (process.env.RUN_TRAINING_SIMULATION === 'true') {
+  const simulationRunId = String(process.env.SIMULATION_RUN_ID || new Date().toISOString());
+  const simulationProfileId = String(process.env.SIMULATION_PROFILE_ID || '').trim();
+  setTimeout(async () => {
+    if (!simulationProfileId) {
+      app.log.error({ simulationRunId }, 'TRAINING_SIMULATION_SKIPPED: SIMULATION_PROFILE_ID missing');
+      return;
+    }
+    try {
+      const profile = await getProfile(simulationProfileId);
+      const result = await runTrainingSimulation(
+        await settings() as LlmSettings,
+        profile,
+        (row) => app.log.warn({ simulationRunId, ...row }, 'TRAINING_SIMULATION_CASE'),
+      );
+      app.log.warn({ simulationRunId, result }, 'TRAINING_SIMULATION_COMPLETE');
+    } catch (error) {
+      app.log.error({
+        simulationRunId,
+        error: error instanceof Error ? error.message : String(error),
+      }, 'TRAINING_SIMULATION_FAILED');
+    }
+  }, 1500);
+}
