@@ -24,6 +24,17 @@ type Session = {
 };
 
 type InboundKind = 'text' | 'voice';
+type HistoryHandler = (
+  profileId: string,
+  jid: string,
+  name: string | null,
+  text: string,
+  waMessageId: string | null,
+  raw: unknown,
+  kind: InboundKind,
+  fromMe: boolean,
+  createdAt: string | null,
+) => Promise<void>;
 
 const sessions = new Map<string, Session>();
 const configuredConnectTimeoutMs = Number(process.env.WA_CONNECT_TIMEOUT_MS || 45_000);
@@ -31,6 +42,7 @@ const connectTimeoutMs = Number.isFinite(configuredConnectTimeoutMs)
   ? Math.max(10_000, configuredConnectTimeoutMs)
   : 45_000;
 let inboundHandler: ((profileId: string, jid: string, name: string | null, text: string, waMessageId: string | null, raw: unknown, kind: InboundKind) => Promise<void>) | null = null;
+let historyHandler: HistoryHandler | null = null;
 let voiceTranscriber: ((audio: Buffer, mime: string) => Promise<string>) | null = null;
 
 function clearConnectWatch(session: Session) {
@@ -54,6 +66,10 @@ export function setInboundHandler(handler: typeof inboundHandler) {
 
 export function setVoiceTranscriber(handler: typeof voiceTranscriber) {
   voiceTranscriber = handler;
+}
+
+export function setHistoryHandler(handler: HistoryHandler | null) {
+  historyHandler = handler;
 }
 
 async function authRead(profileId: string, keys: string[]): Promise<Map<string, string>> {
@@ -137,7 +153,7 @@ export async function connectWhatsApp(profile: Profile): Promise<void> {
     auth: state as any,
     logger: logger as any,
     markOnlineOnConnect: false,
-    syncFullHistory: false,
+    syncFullHistory: true,
     generateHighQualityLinkPreview: false,
   });
   session.socket = socket;
@@ -194,6 +210,37 @@ export async function connectWhatsApp(profile: Profile): Promise<void> {
           connectWhatsApp(profile).catch(async () => setProfileStatus(profile.id, 'error'));
         }, restartRequired ? 250 : 2500);
       }
+    }
+  });
+
+  socket.ev.on('messaging-history.set', async ({ messages, contacts }: any) => {
+    if (!historyHandler) return;
+    const contactNames = new Map<string, string>();
+    for (const contact of contacts || []) {
+      const jid = String(contact?.id || '').trim();
+      const name = String(contact?.name || contact?.notify || contact?.verifiedName || '').trim();
+      if (jid && name) contactNames.set(jid, name);
+    }
+    for (const msg of messages || []) {
+      const jid = String(msg?.key?.remoteJid || '');
+      if (!jid || jid === 'status@broadcast' || jid.endsWith('@g.us')) continue;
+      const text = extractText(msg.message);
+      if (!text) continue;
+      const timestampRaw = Number(msg?.messageTimestamp || 0);
+      const createdAt = Number.isFinite(timestampRaw) && timestampRaw > 0
+        ? new Date(timestampRaw * 1000).toISOString()
+        : null;
+      await historyHandler(
+        profile.id,
+        jid,
+        contactNames.get(jid) || msg.pushName || null,
+        text,
+        msg.key.id || null,
+        msg,
+        'text',
+        Boolean(msg.key.fromMe),
+        createdAt,
+      ).catch((error) => logger.error(error));
     }
   });
 
