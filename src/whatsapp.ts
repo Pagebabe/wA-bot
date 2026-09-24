@@ -1,5 +1,6 @@
 import makeWASocket, {
   BufferJSON,
+  Browsers,
   DisconnectReason,
   downloadMediaMessage,
   initAuthCreds,
@@ -149,11 +150,16 @@ export async function connectWhatsApp(profile: Profile): Promise<void> {
   sessions.set(profile.id, session);
   await setProfileStatus(profile.id, 'connecting');
 
+  const historyExportProfileId = String(process.env.WHATSAPP_HISTORY_EXPORT_PROFILE_ID || '').trim();
+  const syncFullHistory = process.env.WHATSAPP_SYNC_FULL_HISTORY === 'true'
+    || (historyExportProfileId && historyExportProfileId === profile.id);
+
   const socket = makeWASocket({
     auth: state as any,
     logger: logger as any,
     markOnlineOnConnect: false,
-    syncFullHistory: process.env.WHATSAPP_SYNC_FULL_HISTORY === 'true',
+    syncFullHistory,
+    ...(syncFullHistory ? { browser: Browsers.macOS('Desktop') } : {}),
     generateHighQualityLinkPreview: false,
   });
   session.socket = socket;
@@ -220,7 +226,15 @@ export async function connectWhatsApp(profile: Profile): Promise<void> {
     }
   });
 
-  socket.ev.on('messaging-history.set', async ({ messages, contacts }: any) => {
+  socket.ev.on('messaging-history.set', async ({ messages, contacts, syncType, progress, isLatest }: any) => {
+    logger.warn({
+      profileId: profile.id,
+      messageCount: Array.isArray(messages) ? messages.length : 0,
+      contactCount: Array.isArray(contacts) ? contacts.length : 0,
+      syncType: syncType ?? null,
+      progress: progress ?? null,
+      isLatest: isLatest ?? null,
+    }, 'WhatsApp history chunk received');
     if (!historyHandler) return;
     const contactNames = new Map<string, string>();
     for (const contact of contacts || []) {
