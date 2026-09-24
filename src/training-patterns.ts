@@ -68,7 +68,7 @@ function isAbort(text: string): boolean {
 
 function isStrongCommitment(text: string): boolean {
   const t = normalize(text);
-  return /\b(ich komme|komme vorbei|ich will kommen|ich möchte kommen|passt mir|passt gut|bis gleich|bis später|fest einplanen|termin bestätigen|ja ich komme|ok ich komme|okay ich komme)\b/.test(t);
+  return /\b(ich komme|komme vorbei|ich will kommen|ich möchte kommen|passt mir|passt gut|bis gleich|bis später|fest einplanen|termin bestätigen|ja ich komme|ok ich komme|okay ich komme|ja.*weitergeben|yes.*i will come|i will come|i'm coming|im coming|see you soon)\b/.test(t);
 }
 
 function isAffirmative(text: string): boolean {
