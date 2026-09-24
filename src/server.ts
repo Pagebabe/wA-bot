@@ -582,7 +582,18 @@ app.post('/api/conversations/:id/review/approve', async (request, reply) => {
       ...clearPendingReviewPatch(),
     });
     await gateway('add_event', {
-      data: { profile_id: current.profile_id, conversation_id: id, type: 'HUMAN_GATE_HOT_APPROVED', payload: {} },
+      data: {
+        profile_id: current.profile_id,
+        conversation_id: id,
+        type: 'HUMAN_GATE_HOT_APPROVED',
+        payload: {
+          proposed_reply: current.pending_ai_reply || '',
+          proposed_hot: true,
+          score: current.pending_ai_score ?? current.hot_score ?? 0,
+          reason: current.pending_ai_reason || current.hot_reason || '',
+          review_created_at: current.pending_ai_created_at || null,
+        },
+      },
     });
     void notifyHotLead({
       conversationId: current.id,
@@ -619,7 +630,15 @@ app.post('/api/conversations/:id/review/approve', async (request, reply) => {
       profile_id: current.profile_id,
       conversation_id: id,
       type: 'HUMAN_GATE_REPLY_APPROVED',
-      payload: { edited: editedText !== String(current.pending_ai_reply || '').trim() },
+      payload: {
+        edited: editedText !== String(current.pending_ai_reply || '').trim(),
+        proposed_reply: String(current.pending_ai_reply || '').trim(),
+        approved_reply: editedText,
+        proposed_hot: Boolean(current.pending_ai_hot),
+        score: current.pending_ai_score ?? current.hot_score ?? 0,
+        reason: current.pending_ai_reason || current.hot_reason || '',
+        review_created_at: current.pending_ai_created_at || null,
+      },
     },
   });
   return { ok: true, action: 'sent', conversation: updated };
@@ -629,8 +648,20 @@ app.post('/api/conversations/:id/takeover', async (request, reply) => {
   const id = (request.params as any).id;
   const current = (await conversations()).find((x) => x.id === id);
   if (!current) return reply.code(404).send({ error: 'Chat nicht gefunden' });
+  const gateFeedback = current.pending_ai_created_at
+    ? {
+        human_gate_rejected: true,
+        proposed_reply: current.pending_ai_reply || '',
+        proposed_hot: Boolean(current.pending_ai_hot),
+        score: current.pending_ai_score ?? current.hot_score ?? 0,
+        reason: current.pending_ai_reason || current.hot_reason || '',
+        review_created_at: current.pending_ai_created_at,
+      }
+    : {};
   const updated = await updateConversation(id, { state: 'HUMAN_ACTIVE', unread_count: 0, ...clearPendingReviewPatch() });
-  await gateway('add_event', { data: { profile_id: current.profile_id, conversation_id: id, type: 'HUMAN_TAKEOVER', payload: {} } });
+  await gateway('add_event', {
+    data: { profile_id: current.profile_id, conversation_id: id, type: 'HUMAN_TAKEOVER', payload: gateFeedback },
+  });
   return updated;
 });
 
@@ -647,8 +678,20 @@ app.post('/api/conversations/:id/close', async (request, reply) => {
   const id = (request.params as any).id;
   const current = (await conversations()).find((x) => x.id === id);
   if (!current) return reply.code(404).send({ error: 'Chat nicht gefunden' });
+  const closeFeedback = current.pending_ai_created_at
+    ? {
+        human_gate_rejected: true,
+        proposed_reply: current.pending_ai_reply || '',
+        proposed_hot: Boolean(current.pending_ai_hot),
+        score: current.pending_ai_score ?? current.hot_score ?? 0,
+        reason: current.pending_ai_reason || current.hot_reason || '',
+        review_created_at: current.pending_ai_created_at,
+      }
+    : {};
   const updated = await updateConversation(id, { state: 'CLOSED', unread_count: 0, ...clearPendingReviewPatch() });
-  await gateway('add_event', { data: { profile_id: current.profile_id, conversation_id: id, type: 'CLOSED', payload: {} } });
+  await gateway('add_event', {
+    data: { profile_id: current.profile_id, conversation_id: id, type: 'CLOSED', payload: closeFeedback },
+  });
   return updated;
 });
 
