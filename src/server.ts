@@ -695,6 +695,48 @@ app.post('/api/conversations/:id/close', async (request, reply) => {
   return updated;
 });
 
+app.post('/api/conversations/:id/suggest-reply', async (request, reply) => {
+  const id = (request.params as any).id;
+  const current = (await conversations()).find((x) => x.id === id);
+  if (!current) return reply.code(404).send({ error: 'Chat nicht gefunden' });
+  if (current.state !== 'HUMAN_ACTIVE') {
+    return reply.code(409).send({ error: 'KI-Vorschlag ist nach Übernahme des Chats verfügbar' });
+  }
+
+  const profile = await getProfile(current.profile_id);
+  const history = await messages(id);
+  if (!history.length) return reply.code(409).send({ error: 'Noch kein Chatverlauf vorhanden' });
+
+  try {
+    const result = await qualifyLead(await settings() as LlmSettings, profile, current, history);
+    await gateway('add_event', {
+      data: {
+        profile_id: current.profile_id,
+        conversation_id: id,
+        type: 'AI_REPLY_SUGGESTED',
+        payload: {
+          reply: result.reply || '',
+          hot: Boolean(result.hot),
+          score: result.score,
+          reason: result.reason || '',
+        },
+      },
+    });
+    return {
+      ok: true,
+      reply: result.reply || '',
+      hot: Boolean(result.hot),
+      score: result.score,
+      reason: result.reason || '',
+    };
+  } catch (error) {
+    app.log.warn({ err: error, conversationId: id }, 'AI reply suggestion failed');
+    return reply.code(502).send({
+      error: error instanceof Error ? error.message.slice(0, 300) : 'KI-Vorschlag fehlgeschlagen',
+    });
+  }
+});
+
 app.post('/api/conversations/:id/send', async (request, reply) => {
   const id = (request.params as any).id;
   const body: any = request.body || {};

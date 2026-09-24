@@ -1542,6 +1542,15 @@
               onclick="openEntryPhotoPicker()"
             >
               🏠</button
+            ><button
+              id="suggestBtn"
+              class="icon"
+              title="KI-Vorschlag für die nächste Antwort"
+              aria-label="KI-Vorschlag für die nächste Antwort"
+              onclick="suggestReply()"
+              disabled
+            >
+              ✨</button
             ><textarea
               id="composer"
               rows="1"
@@ -2346,6 +2355,7 @@
         $("mediaBtn").disabled = false;
         $("locationBtn").disabled = false;
         $("entryPhotoBtn").disabled = false;
+        $("suggestBtn").disabled = !canWrite;
         renderReviewGate();
         renderQuickBar();
       }
@@ -2358,9 +2368,12 @@
         gate.classList.toggle("show", pending);
         if (!pending) return;
         const hot = Boolean(c.pending_ai_hot);
+        const warm = !hot && Number(c.pending_ai_score || 0) >= 0.7;
         $("reviewGateTitle").textContent = hot
           ? "🛡 Human Gate · HOT-Kandidat prüfen"
-          : "🛡 Human Gate · Antwort prüfen";
+          : warm
+            ? "🟠 Human Gate · WARM prüfen"
+            : "🛡 Human Gate · Antwort prüfen";
         $("reviewGateScore").textContent =
           typeof c.pending_ai_score === "number"
             ? "Score " + Math.round(c.pending_ai_score * 100) + "%"
@@ -2444,6 +2457,40 @@
         $("chatPane").classList.remove("mobileOpen");
         await load();
       }
+      async function suggestReply() {
+        if (!state.currentChat) return;
+        if (state.currentChat.state !== "HUMAN_ACTIVE")
+          return toast("Chat zuerst übernehmen");
+        const button = $("suggestBtn");
+        button.disabled = true;
+        const oldText = button.textContent;
+        button.textContent = "…";
+        try {
+          const result = await api(
+            "/api/conversations/" + state.currentChat.id + "/suggest-reply",
+            { method: "POST", body: "{}" },
+          );
+          if (result.hot) {
+            toast("🔥 KI sieht HOT: " + (result.reason || "bitte prüfen"));
+            return;
+          }
+          if (!String(result.reply || "").trim()) {
+            toast(result.reason || "Kein sinnvoller Vorschlag");
+            return;
+          }
+          $("composer").value = String(result.reply || "").trim();
+          $("composer").focus();
+          if (Number(result.score || 0) >= 0.7)
+            toast("🟠 WARM · Vorschlag eingefügt");
+          else toast("✨ KI-Vorschlag eingefügt");
+        } catch (e) {
+          toast(e.message);
+        } finally {
+          button.textContent = oldText;
+          button.disabled = state.currentChat?.state !== "HUMAN_ACTIVE";
+        }
+      }
+
       async function sendMessage() {
         if (!state.currentChat) return;
         if (state.currentChat.state !== "HUMAN_ACTIVE")
