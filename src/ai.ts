@@ -82,6 +82,14 @@ export async function qualifyLead(
       reason: 'Aktuelle Nachricht signalisiert Absage oder Abbruch.',
     };
   }
+  if (signals.hesitationNow) {
+    return {
+      reply: 'Kein Stress 😊 Meld dich einfach, wenn du sicher bist.',
+      hot: false,
+      score: 0.18,
+      reason: 'Kontakt ist aktuell unentschlossen; keine weitere Bestätigungsfrage.',
+    };
+  }
   if (signals.arrivalNow) {
     return { reply: '', hot: true, score: 0.99, reason: 'Kontakt ist bereits vor Ort; sofortige Übergabe.' };
   }
@@ -97,10 +105,13 @@ export async function qualifyLead(
     };
   }
   if (signals.hasTemporalWish && !signals.hasDuration) {
-    return { reply: 'Wie lange magst du bleiben? 😊', hot: false, score: 0.5, reason: 'Zeitwunsch vorhanden, Dauer fehlt.' };
+    return { reply: 'Wie lange magst du bleiben? 😊', hot: false, score: 0.5, reason: 'Konkreter Zeitwunsch vorhanden, Dauer fehlt.' };
+  }
+  if (!signals.hasTemporalWish && signals.hasDayMention && !signals.hasDuration) {
+    return { reply: 'Welche Uhrzeit passt dir? 😊', hot: false, score: 0.35, reason: 'Tag ist bekannt, konkrete Uhrzeit fehlt.' };
   }
   if (!signals.hasTemporalWish && signals.hasDuration) {
-    return { reply: 'Wann magst du kommen? 😊', hot: false, score: 0.45, reason: 'Dauer vorhanden, Zeitwunsch fehlt.' };
+    return { reply: 'Wann magst du kommen? 😊', hot: false, score: 0.45, reason: 'Dauer vorhanden, konkrete Uhrzeit fehlt.' };
   }
 
   const apiKey = settings.llm_api_key_encrypted;
