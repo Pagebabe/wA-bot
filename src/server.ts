@@ -226,7 +226,7 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw, kind) => 
     }
     conversation = latestConversation;
     const turn = Number(conversation.ai_turns || 0) + 1;
-    const forceHuman = turn >= GLOBAL_MAX_AI_TURNS;
+    const forceHuman = !humanGate && turn >= GLOBAL_MAX_AI_TURNS;
     const hotReason = forceHuman ? 'Maximale KI-Runden erreicht – manuelle Übernahme erforderlich.' : result.reason;
 
     let outgoingText = result.reply;
@@ -239,9 +239,9 @@ setInboundHandler(async (profileId, jid, name, text, waMessageId, raw, kind) => 
       const reviewCreatedAt = new Date().toISOString();
       const candidate = {
         reply: outgoingText || '',
-        hot: Boolean(result.hot || forceHuman),
-        score: forceHuman ? Math.max(result.score, 0.75) : result.score,
-        reason: hotReason || '',
+        hot: Boolean(result.hot),
+        score: result.score,
+        reason: result.reason || '',
       };
       await updateConversation(conversation.id, {
         ...pendingReviewPatch(candidate, reviewCreatedAt),
